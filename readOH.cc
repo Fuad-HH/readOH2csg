@@ -1,5 +1,6 @@
 #include <cmath>
 #include <iostream>
+#include <fstream>
 #include <vector>
 #include <string>
 #include <Kokkos_Core.hpp>
@@ -74,6 +75,9 @@ int main(int argc, char** argv) {
   auto edgeOffsets = edge2vert.a2ab;
   auto edgeVertices = edge2vert.ab2b;
 
+  std::ofstream edge_coeffs_file;
+  edge_coeffs_file.open("edge_coeffs.dat", std::ios::app);
+
   // * Step 1: loop over all edges and print the associated vertices
   for (Omega_h::LO i = 0; i < mesh.nedges(); ++i) {
     //auto offsets = edge2vert.a2ab(i); // no function a2ab in Omega_h::Adj
@@ -109,7 +113,14 @@ int main(int argc, char** argv) {
     // print the coefficients of the edge
     std::cout << "Edge " << i << " has coefficients: " << edge_coeffs[0] << " " 
             << edge_coeffs[1] << " " << edge_coeffs[2] << " Top Bottom: " << edge_coeffs[3] << "\n";
+
+    // write the coefficients to a file
+    edge_coeffs_file << i << " " << edge_coeffs[0] << " " << edge_coeffs[1] << " " << edge_coeffs[2] << " " << edge_coeffs[3] << "\n";
   }
+  edge_coeffs_file.close();
+
+  std::ofstream face2edgemap_file;
+  face2edgemap_file.open("face2edgemap.dat", std::ios::app);
   // ********** Reading the Edge done ********** //
   auto face2vert = mesh.ask_down(2, 0);
   auto face2vertVerts = face2vert.ab2b;
@@ -148,7 +159,11 @@ int main(int argc, char** argv) {
 
     // print the inorout flag for each edge (edge: inoroutflag)
     std::cout << "Edge " << edge1 << ": " << inoroutflag1 << ", Edge " << edge2 << ": " << inoroutflag2 << ", Edge " << edge3 << ": " << inoroutflag3 << "\n";
+
+    // store the faces and inorout flags in a file
+    face2edgemap_file << i << " " << edge1 << " " << inoroutflag1 << " " << edge2 << " " << inoroutflag2 << " " << edge3 << " " << inoroutflag3 << "\n";
   }
+  face2edgemap_file.close();
 
 
 
