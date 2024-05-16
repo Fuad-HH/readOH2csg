@@ -30,7 +30,7 @@
  * This equation needs to be generalized for any line in the xz plane. It will not work for cylinders as m will be undefined.
  * There is one way of avoiding this by checking if x1 = x2. If it is, then use `ZCylinder` instead of `Quadratic` for the face.
  */
-std::vector<double> compute_coefficients(Omega_h::Vector<2> vert1, Omega_h::Vector<2> vert2);
+std::vector<double> compute_coefficients(Omega_h::Few<double, 2> &vert1, Omega_h::Few<double, 2> &vert2);
 /**
  * @brief Check weather to keep the inside or outside of the face
  * @details The 3 verts of the face and the edge coefficints are passed and substibuted in the plane equation
@@ -68,7 +68,7 @@ int main(int argc, char** argv) {
 
   // *********** Read all the edges of the mesh *********** //
   // kokkos view to store nedges * 3 doubles : m^2, 2c, -c^2
-  auto edge_coeffs_view = Kokkos::View<double*[4]>("edge_coeffs", mesh.nedges());
+  auto edge_coeffs_view = Kokkos::View<double*[5]>("edge_coeffs", mesh.nedges());
 
   // get the adjacency for the edges
   auto edge2vert = mesh.get_adj(1, 0);
@@ -76,7 +76,7 @@ int main(int argc, char** argv) {
   auto edgeVertices = edge2vert.ab2b;
 
   std::ofstream edge_coeffs_file;
-  edge_coeffs_file.open("edge_coeffs.dat", std::ios::app);
+  edge_coeffs_file.open("edge_coeffs.dat");
 
   // * Step 1: loop over all edges and print the associated vertices
   for (Omega_h::LO i = 0; i < mesh.nedges(); ++i) {
@@ -91,14 +91,14 @@ int main(int argc, char** argv) {
             " " << v1coords[1] << " and " << v2coords[0] << " " << v2coords[1] << "\n";
     
     // coefficient vector of doubles of size 3
-    std::vector<double> edge_coeffs(4, 0.0);
+    std::vector<double> edge_coeffs(5, 0.0);
 
     if (std::abs(v1coords[0] - v2coords[0]) < 1e-10) {
       // cylinder surface: x^2 + y^2 - r^2 = 0
-      edge_coeffs = {1.0, 0.0, -v1coords[0] * v1coords[0]};
+      edge_coeffs = {1.0, 0.0, 0.0, -v1coords[0] * v1coords[0], 0};
     } else if (std::abs(v1coords[1] - v2coords[1]) < 1e-10) {
       // z plane: z-z0 = 0
-      edge_coeffs = {0.0, 1.0, -v1coords[1]};
+      edge_coeffs = {0.0, 0.0, 1.0, -v1coords[1], 0};
     } else {
       // compute the coefficients of the line passing through vert1 and vert2
       edge_coeffs = compute_coefficients(v1coords, v2coords);
@@ -112,15 +112,15 @@ int main(int argc, char** argv) {
 
     // print the coefficients of the edge
     std::cout << "Edge " << i << " has coefficients: " << edge_coeffs[0] << " " 
-            << edge_coeffs[1] << " " << edge_coeffs[2] << " Top Bottom: " << edge_coeffs[3] << "\n";
+            << edge_coeffs[1] << " " << edge_coeffs[2] << " " << edge_coeffs[3] << " Top Bottom: " << edge_coeffs[4] << "\n";
 
     // write the coefficients to a file
-    edge_coeffs_file << i << " " << edge_coeffs[0] << " " << edge_coeffs[1] << " " << edge_coeffs[2] << " " << edge_coeffs[3] << "\n";
+    edge_coeffs_file << i << " " << edge_coeffs[0] << " " << edge_coeffs[1] << " " << edge_coeffs[2] << " " << edge_coeffs[3] << " " << edge_coeffs[4] << "\n";
   }
   edge_coeffs_file.close();
 
   std::ofstream face2edgemap_file;
-  face2edgemap_file.open("face2edgemap.dat", std::ios::app);
+  face2edgemap_file.open("face2edgemap.dat");
   // ********** Reading the Edge done ********** //
   auto face2vert = mesh.ask_down(2, 0);
   auto face2vertVerts = face2vert.ab2b;
@@ -153,9 +153,9 @@ int main(int argc, char** argv) {
     
     // each edge of a face has a flag associated with it
     // named inoroutflag: -1 for inside, 1 for outside
-    int inoroutflag1 = inorout(v1coords, v2coords, v3coords, {edge_coeffs_view(edge1, 0), edge_coeffs_view(edge1, 1), edge_coeffs_view(edge1, 2)});
-    int inoroutflag2 = inorout(v1coords, v2coords, v3coords, {edge_coeffs_view(edge2, 0), edge_coeffs_view(edge2, 1), edge_coeffs_view(edge2, 2)});
-    int inoroutflag3 = inorout(v1coords, v2coords, v3coords, {edge_coeffs_view(edge3, 0), edge_coeffs_view(edge3, 1), edge_coeffs_view(edge3, 2)});
+    int inoroutflag1 = inorout(v1coords, v2coords, v3coords, {edge_coeffs_view(edge1, 0), edge_coeffs_view(edge1, 1), edge_coeffs_view(edge1, 2), edge_coeffs_view(edge1, 3)});
+    int inoroutflag2 = inorout(v1coords, v2coords, v3coords, {edge_coeffs_view(edge2, 0), edge_coeffs_view(edge2, 1), edge_coeffs_view(edge2, 2), edge_coeffs_view(edge2, 3)});
+    int inoroutflag3 = inorout(v1coords, v2coords, v3coords, {edge_coeffs_view(edge3, 0), edge_coeffs_view(edge3, 1), edge_coeffs_view(edge3, 2), edge_coeffs_view(edge3, 3)});
 
     // print the inorout flag for each edge (edge: inoroutflag)
     std::cout << "Edge " << edge1 << ": " << inoroutflag1 << ", Edge " << edge2 << ": " << inoroutflag2 << ", Edge " << edge3 << ": " << inoroutflag3 << "\n";
@@ -191,24 +191,28 @@ int main(int argc, char** argv) {
   return 0;
 }
 
-std::vector<double> compute_coefficients(Omega_h::Vector<2> vert1, Omega_h::Vector<2> vert2) {
+std::vector<double> compute_coefficients(Omega_h::Few<double, 2> &vert1, Omega_h::Few<double, 2> &vert2) {
   // compute the coefficients of the line passing through vert1 and vert2
   double m = (vert2[1] - vert1[1]) / (vert2[0] - vert1[0]);
-  double c = vert1[1] - m * vert1[0];
+  double c = vert1[1] - (m * vert1[0]);
   double c2 = c * c;
   // if z > c, topbottomflag = 1, else -1
   double topbottomflag = (vert1[1] > c) ? 1 : -1;
-  return {m * m, 2 * c, -c2, topbottomflag};
+  return {m * m, -1, 2 * c, -c2, topbottomflag};
 }
 
 int inorout(Omega_h::Vector<2> vert1, Omega_h::Vector<2> vert2, Omega_h::Vector<2> vert3, std::vector<double> edgeCoeffs) {
   // evaluate the equation with the coefficients for 3 vertices
   std::vector<double> evals(3, 0.0);
-  // ev    =            c1*x^2                   -        z^2          +            c2*z          +        c3
-  evals[0] = edgeCoeffs[0] * vert1[0] * vert1[0] - vert1[1] * vert1[1] + edgeCoeffs[1] * vert1[1] + edgeCoeffs[2];
-  evals[1] = edgeCoeffs[0] * vert2[0] * vert2[0] - vert2[1] * vert2[1] + edgeCoeffs[1] * vert2[1] + edgeCoeffs[2];
-  evals[2] = edgeCoeffs[0] * vert3[0] * vert3[0] - vert3[1] * vert3[1] + edgeCoeffs[1] * vert3[1] + edgeCoeffs[2];
+  // ev    =            c1*x^2                   +        c2*z^2                       +            c3*z          +        c4
+  evals[0] = edgeCoeffs[0] * vert1[0] * vert1[0] + edgeCoeffs[1] * vert1[1] * vert1[1] + edgeCoeffs[2] * vert1[1] + edgeCoeffs[3];
+  evals[1] = edgeCoeffs[0] * vert2[0] * vert2[0] + edgeCoeffs[1] * vert2[1] * vert2[1] + edgeCoeffs[2] * vert2[1] + edgeCoeffs[3];
+  evals[2] = edgeCoeffs[0] * vert3[0] * vert3[0] + edgeCoeffs[1] * vert3[1] * vert3[1] + edgeCoeffs[2] * vert3[1] + edgeCoeffs[3];
 
+  // print the coefficients of the edge
+  std::cout << "Edge has coefficients: " << edgeCoeffs[0] << " " << edgeCoeffs[1] << " " << edgeCoeffs[2] << " " << edgeCoeffs[3] << "\n";
+  // print the evaluations of the vertices
+  std::cout << "Evaluations are: " << evals[0] << " " << evals[1] << " " << evals[2] << "\n";
   // loop over the evals and check if the face is inside or outside
   for (double ev : evals) {
     // if ev is not close to 0 and positive, inoroutflag = 1 (outside), else -1 (inside)
