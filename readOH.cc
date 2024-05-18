@@ -79,6 +79,17 @@ int main(int argc, char** argv) {
 
   // read the mesh filename
   std::string mesh_filename = argv[1];
+  if (argc < 2) {
+    std::cerr << "Usage: " << argv[0] << " <mesh_filename> <printflag>=0\n";
+    return 1;
+  }
+  bool printflag = false;
+  if (argc == 3){
+    int print = std::stoi(argv[2]);
+    printflag = print;
+  }
+  
+  
   Omega_h::binary::read(mesh_filename, world, &mesh);
   // ***************** Mesh reading is done ***************** //
 
@@ -102,9 +113,11 @@ int main(int argc, char** argv) {
     auto v1coords = Omega_h::get_vector<2>(mesh.coords(), vert1);
     auto v2coords = Omega_h::get_vector<2>(mesh.coords(), vert2);
 
-    // print the coordinates of the vertices
-    std::cout << "Edge " << i << " connects vertices " << v1coords[0] << 
-            " " << v1coords[1] << " and " << v2coords[0] << " " << v2coords[1] << "\n";
+    if (printflag) {
+      // print the coordinates of the vertices
+      std::cout << "Edge " << i << " connects vertices " << v1coords[0] << 
+          " " << v1coords[1] << " and " << v2coords[0] << " " << v2coords[1] << "\n";
+    }
     
     // coefficient vector of doubles of size 3
     std::vector<double> edge_coeffs(5, 0.0);
@@ -128,9 +141,11 @@ int main(int argc, char** argv) {
     edge_coeffs_view(i, 4) = edge_coeffs[4];
     edge_coeffs_view(i, 5) = edge_coeffs[5];
 
-    // print the coefficients of the edge
-    std::cout << "Edge " << i << " has coefficients: " << edge_coeffs[0] << " " 
-            << edge_coeffs[1] << " " << edge_coeffs[2] << " " << edge_coeffs[3] << " Top Bottom: " << edge_coeffs[4] << "\n";
+    if (printflag) {
+      // print the coefficients of the edge
+      std::cout << "Edge " << i << " has coefficients: " << edge_coeffs[0] << " " 
+        << edge_coeffs[1] << " " << edge_coeffs[2] << " " << edge_coeffs[3] << " Top Bottom: " << edge_coeffs[4] << "\n";
+    }
 
     // write the coefficients to a file
     edge_coeffs_file << i << " " << edge_coeffs[0] << " " << edge_coeffs[1] << " " << edge_coeffs[2] << " " << edge_coeffs[3] << " " << edge_coeffs[4] << "\n";
@@ -153,8 +168,10 @@ int main(int argc, char** argv) {
     auto edge2 = face2edgeEdges[3*i + 1];
     auto edge3 = face2edgeEdges[3*i + 2];
 
-    // print the edges of the face
-    std::cout << "Face " << i << " has edges " << edge1 << " " << edge2 << " " << edge3 << "\n";
+    if (printflag) {
+      // print the edges of the face
+      std::cout << "Face " << i << " has edges " << edge1 << " " << edge2 << " " << edge3 << "\n";
+    }
 
     // extract the vertices of the face
     auto vert1 = face2vertVerts[3*i];
@@ -165,9 +182,11 @@ int main(int argc, char** argv) {
     auto v2coords = Omega_h::get_vector<2>(mesh.coords(), vert2);
     auto v3coords = Omega_h::get_vector<2>(mesh.coords(), vert3);
 
-    // print the vertices of the face
-    std::cout << "Face " << i << " has vertices " << v1coords[0] << " " << v1coords[1] << ", " 
-          << v2coords[0] << " " << v2coords[1] << ", " << v3coords[0] << " " << v3coords[1] << "\n";
+    if (printflag) {
+      // print the vertices of the face
+      std::cout << "Face " << i << " has vertices " << v1coords[0] << " " << v1coords[1] << ", " 
+        << v2coords[0] << " " << v2coords[1] << ", " << v3coords[0] << " " << v3coords[1] << "\n";
+    }
     
     // each edge of a face has a flag associated with it
     // named inoroutflag: -1 for inside, 1 for outside
@@ -180,8 +199,10 @@ int main(int argc, char** argv) {
     int inoroutflag3 = inoroutWline(v1coords, v2coords, v3coords, {edge_coeffs_view(edge3, 0), edge_coeffs_view(edge3, 1), edge_coeffs_view(edge3, 2), edge_coeffs_view(edge3, 3), edge_coeffs_view(edge3, 4), edge_coeffs_view(edge3, 5)});
 
 
-    // print the inorout flag for each edge (edge: inoroutflag)
-    std::cout << "Edge " << edge1 << ": " << inoroutflag1 << ", Edge " << edge2 << ": " << inoroutflag2 << ", Edge " << edge3 << ": " << inoroutflag3 << "\n";
+    if (printflag) {
+      // print the inorout flag for each edge (edge: inoroutflag)
+      std::cout << "Edge " << edge1 << ": " << inoroutflag1 << ", Edge " << edge2 << ": " << inoroutflag2 << ", Edge " << edge3 << ": " << inoroutflag3 << "\n";
+    }
 
     // store the faces and inorout flags in a file
     face2edgemap_file << i << " " << edge1 << " " << inoroutflag1 << " " << edge2 << " " << inoroutflag2 << " " << edge3 << " " << inoroutflag3 << "\n";
@@ -189,7 +210,7 @@ int main(int argc, char** argv) {
   face2edgemap_file.close();
 
 
-
+/*
   // TODO: Remove this following code
   // return type Omega_h::Reals derived from Omega_h::Read<Omega_h::Real>
   const auto coords = mesh.coords(); // ? returns a Reals object: Read<Real> object: Real is double
@@ -210,6 +231,7 @@ int main(int argc, char** argv) {
     const auto x_i = Omega_h::get_vector<2>(coords, i);
     std::cout << x_i[0] << " " << x_i[1] << "\n";
   }
+  */
 
   return 0;
 }
@@ -233,9 +255,9 @@ int inorout(Omega_h::Vector<2> vert1, Omega_h::Vector<2> vert2, Omega_h::Vector<
   evals[2] = edgeCoeffs[0] * vert3[0] * vert3[0] + edgeCoeffs[1] * vert3[1] * vert3[1] + edgeCoeffs[2] * vert3[1] + edgeCoeffs[3];
 
   // print the coefficients of the edge
-  std::cout << "Edge has coefficients: " << edgeCoeffs[0] << " " << edgeCoeffs[1] << " " << edgeCoeffs[2] << " " << edgeCoeffs[3] << "\n";
+  //std::cout << "Edge has coefficients: " << edgeCoeffs[0] << " " << edgeCoeffs[1] << " " << edgeCoeffs[2] << " " << edgeCoeffs[3] << "\n";
   // print the evaluations of the vertices
-  std::cout << "Evaluations are: " << evals[0] << " " << evals[1] << " " << evals[2] << "\n";
+  //std::cout << "Evaluations are: " << evals[0] << " " << evals[1] << " " << evals[2] << "\n";
   // loop over the evals and check if the face is inside or outside
   for (double ev : evals) {
     // if ev is not close to 0 and positive, inoroutflag = 1 (outside), else -1 (inside)
@@ -262,9 +284,9 @@ int inoroutWline(Omega_h::Vector<2> vert1, Omega_h::Vector<2> vert2, Omega_h::Ve
   evals[2] = edgeCoeffs[0] * vert3[0] * vert3[0] + edgeCoeffs[1] * vert3[1] * vert3[1] + edgeCoeffs[2] * vert3[1] + edgeCoeffs[3];
   
   // print the coefficients of the edge
-  std::cout << "Edge has coefficients: " << edgeCoeffs[0] << " " << edgeCoeffs[1] << " " << edgeCoeffs[2] << " " << edgeCoeffs[3] << "\n";
+  //std::cout << "Edge has coefficients: " << edgeCoeffs[0] << " " << edgeCoeffs[1] << " " << edgeCoeffs[2] << " " << edgeCoeffs[3] << "\n";
   // print the evaluations of the vertices
-  std::cout << "Evaluations are: " << evals[0] << " " << evals[1] << " " << evals[2] << "\n";
+  //std::cout << "Evaluations are: " << evals[0] << " " << evals[1] << " " << evals[2] << "\n";
   // *********************************************** //
 
   // ************** in case of cone **************** //
@@ -281,12 +303,12 @@ int inoroutWline(Omega_h::Vector<2> vert1, Omega_h::Vector<2> vert2, Omega_h::Ve
     lineevals[2] = above_or_below_line(vert3, {m, c});
     // any two of them will be zero and the third will be non-zero
     for (int ev : lineevals) {
-      std::cout << "lin eval: " << ev << "\n";
+      //std::cout << "lin eval: " << ev << "\n";
       if (ev == -1) {lineflag = -1;}
       if (ev == 1) {lineflag = 1;}
     }
     // print for debugging
-    std::cout << "Evaluating for cone: with m = " << m << " and c = " << c << " and lineflag = " << lineflag << ", topbottomflag = " << topbottomflag << "\n";
+    //std::cout << "Evaluating for cone: with m = " << m << " and c = " << c << " and lineflag = " << lineflag << ", topbottomflag = " << topbottomflag << "\n";
 
     // if any or lineflag or topbottomflag is 1 and the other is -1, return 1
     if (lineflag+topbottomflag == 0) {
