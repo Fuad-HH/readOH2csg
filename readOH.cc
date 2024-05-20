@@ -93,6 +93,12 @@ int main(int argc, char** argv) {
   Omega_h::binary::read(mesh_filename, world, &mesh);
   // ***************** Mesh reading is done ***************** //
 
+  // ******** Get the boundary entities ******** //
+  auto bdrs = mesh.get_boundary_entities();
+  if (printflag) {
+    std::cout << "Boundary entities: " << bdrs.size() << "\n";
+  }
+
   // *********** Read all the edges of the mesh *********** //
   // kokkos view to store nedges * 3 doubles : m^2, 2c, -c^2
   auto edge_coeffs_view = Kokkos::View<double*[6]>("edge_coeffs", mesh.nedges());
@@ -149,6 +155,11 @@ int main(int argc, char** argv) {
 
     // write the coefficients to a file
     edge_coeffs_file << i << " " << edge_coeffs[0] << " " << edge_coeffs[1] << " " << edge_coeffs[2] << " " << edge_coeffs[3] << " " << edge_coeffs[4] << "\n";
+  }
+  // the last line contains all the boundary edges
+  edge_coeffs_file << "Boundary edges: " << bdrs.size() << "\n";
+  for (Omega_h::LO i = 0; i < bdrs.size(); ++i) {
+    edge_coeffs_file << bdrs[i] << " ";
   }
   edge_coeffs_file.close();
 
