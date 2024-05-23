@@ -8,6 +8,7 @@
 #include "Omega_h_file.hpp"
 #include "Omega_h_for.hpp"
 #include "Omega_h_mesh.hpp"
+#include "Omega_h_mark.hpp"
 
 /**
  * The equation of the line is:
@@ -94,10 +95,16 @@ int main(int argc, char** argv) {
   // ***************** Mesh reading is done ***************** //
 
   // ******** Get the boundary entities ******** //
-  auto bdrs = mesh.get_boundary_entities();
-  if (printflag) {
-    std::cout << "Boundary entities: " << bdrs.size() << "\n";
+  std::vector<int> bdrs;
+
+  // get boundary with mark_exposed_sides function
+  auto exposed_sides = Omega_h::mark_exposed_sides(&mesh);
+  for (Omega_h::LO i = 0; i < exposed_sides.size(); ++i) {
+    if (exposed_sides[i]) {
+      bdrs.push_back(int(i));
+    }
   }
+
 
   // *********** Read all the edges of the mesh *********** //
   // kokkos view to store nedges * 3 doubles : m^2, 2c, -c^2
