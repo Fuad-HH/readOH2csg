@@ -119,7 +119,8 @@ int main(int argc, char** argv) {
   edge_coeffs_file.open("edge_coeffs.dat");
 
   // * Step 1: loop over all edges and print the associated vertices
-  for (Omega_h::LO i = 0; i < mesh.nedges(); ++i) {
+  //for (Omega_h::LO i = 0; i < mesh.nedges(); ++i) {
+  const auto create_edge_coeffs = OMEGA_H_LAMBDA(Omega_h::LO i) {
     //auto offsets = edge2vert.a2ab(i); // no function a2ab in Omega_h::Adj
     auto vert1 = edgeVertices[2*i];
     auto vert2 = edgeVertices[2*i + 1];
@@ -161,8 +162,16 @@ int main(int argc, char** argv) {
     }
 
     // write the coefficients to a file
-    edge_coeffs_file << i << " " << edge_coeffs[0] << " " << edge_coeffs[1] << " " << edge_coeffs[2] << " " << edge_coeffs[3] << " " << edge_coeffs[4] << "\n";
+    //edge_coeffs_file << i << " " << edge_coeffs[0] << " " << edge_coeffs[1] << " " << edge_coeffs[2] << " " << edge_coeffs[3] << " " << edge_coeffs[4] << "\n";
+  };
+  // loop over all edges
+  Omega_h::parallel_for(mesh.nedges(), create_edge_coeffs);
+  // write out the coefficients to a file
+  for (Omega_h::LO i = 0; i < mesh.nedges(); ++i) {
+    edge_coeffs_file << i << " " << edge_coeffs_view(i, 0) << " " << edge_coeffs_view(i, 1) << " " << edge_coeffs_view(i, 2) << " " << edge_coeffs_view(i, 3) << " " << edge_coeffs_view(i, 4) << "\n";
   }
+
+
   // the last line contains all the boundary edges
   edge_coeffs_file << "Boundary edges: " << bdrs.size() << "\n";
   for (Omega_h::LO i = 0; i < bdrs.size(); ++i) {
@@ -182,6 +191,7 @@ int main(int argc, char** argv) {
   auto face2edgeEdges = face2edge.ab2b;
 
   for (Omega_h::LO i = 0; i < mesh.nfaces(); ++i) {
+  //const auto create_face2edgemap = OMEGA_H_LAMBDA(Omega_h::LO i) {
     auto edge1 = face2edgeEdges[3*i];
     auto edge2 = face2edgeEdges[3*i + 1];
     auto edge3 = face2edgeEdges[3*i + 2];
@@ -225,6 +235,9 @@ int main(int argc, char** argv) {
     // store the faces and inorout flags in a file
     face2edgemap_file << i << " " << edge1 << " " << inoroutflag1 << " " << edge2 << " " << inoroutflag2 << " " << edge3 << " " << inoroutflag3 << "\n";
   }
+
+  // loop over all faces
+  //Omega_h::parallel_for(mesh.nfaces(), create_face2edgemap);
   face2edgemap_file.close();
 
 
