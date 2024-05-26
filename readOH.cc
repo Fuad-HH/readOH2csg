@@ -119,9 +119,7 @@ int main(int argc, char** argv) {
   edge_coeffs_file.open("edge_coeffs.dat");
 
   // * Step 1: loop over all edges and print the associated vertices
-  //for (Omega_h::LO i = 0; i < mesh.nedges(); ++i) {
   const auto create_edge_coeffs = OMEGA_H_LAMBDA(Omega_h::LO i) {
-    //auto offsets = edge2vert.a2ab(i); // no function a2ab in Omega_h::Adj
     auto vert1 = edgeVertices[2*i];
     auto vert2 = edgeVertices[2*i + 1];
     auto v1coords = Omega_h::get_vector<2>(mesh.coords(), vert1);
@@ -161,8 +159,6 @@ int main(int argc, char** argv) {
         << edge_coeffs[1] << " " << edge_coeffs[2] << " " << edge_coeffs[3] << " Top Bottom: " << edge_coeffs[4] << "\n";
     }
 
-    // write the coefficients to a file
-    //edge_coeffs_file << i << " " << edge_coeffs[0] << " " << edge_coeffs[1] << " " << edge_coeffs[2] << " " << edge_coeffs[3] << " " << edge_coeffs[4] << "\n";
   };
   // loop over all edges
   Omega_h::parallel_for(mesh.nedges(), create_edge_coeffs);
@@ -170,8 +166,6 @@ int main(int argc, char** argv) {
   for (Omega_h::LO i = 0; i < mesh.nedges(); ++i) {
     edge_coeffs_file << i << " " << edge_coeffs_view(i, 0) << " " << edge_coeffs_view(i, 1) << " " << edge_coeffs_view(i, 2) << " " << edge_coeffs_view(i, 3) << " " << edge_coeffs_view(i, 4) << "\n";
   }
-
-
   // the last line contains all the boundary edges
   edge_coeffs_file << "Boundary edges: " << bdrs.size() << "\n";
   for (Omega_h::LO i = 0; i < bdrs.size(); ++i) {
@@ -187,11 +181,14 @@ int main(int argc, char** argv) {
 
   // * Step 2: loop over all faces
   auto face2edge = mesh.get_adj(2, 1);
-  auto face2edgeOffsets = face2edge.a2ab;
+  //auto face2edgeOffsets = face2edge.a2ab;
   auto face2edgeEdges = face2edge.ab2b;
 
-  for (Omega_h::LO i = 0; i < mesh.nfaces(); ++i) {
-  //const auto create_face2edgemap = OMEGA_H_LAMBDA(Omega_h::LO i) {
+  // a kokkos view to store the face to edge map
+  auto face2edgemap = Kokkos::View<int*[6]>("face2edgemap", mesh.nfaces());
+
+  //for (Omega_h::LO i = 0; i < mesh.nfaces(); ++i) {
+  const auto create_face2edgemap = OMEGA_H_LAMBDA(Omega_h::LO i) {
     auto edge1 = face2edgeEdges[3*i];
     auto edge2 = face2edgeEdges[3*i + 1];
     auto edge3 = face2edgeEdges[3*i + 2];
@@ -217,52 +214,26 @@ int main(int argc, char** argv) {
     }
     
     // each edge of a face has a flag associated with it
-    // named inoroutflag: -1 for inside, 1 for outside
-    //int inoroutflag1 = inorout(v1coords, v2coords, v3coords, {edge_coeffs_view(edge1, 0), edge_coeffs_view(edge1, 1), edge_coeffs_view(edge1, 2), edge_coeffs_view(edge1, 3)});
-    //int inoroutflag2 = inorout(v1coords, v2coords, v3coords, {edge_coeffs_view(edge2, 0), edge_coeffs_view(edge2, 1), edge_coeffs_view(edge2, 2), edge_coeffs_view(edge2, 3)});
-    //int inoroutflag3 = inorout(v1coords, v2coords, v3coords, {edge_coeffs_view(edge3, 0), edge_coeffs_view(edge3, 1), edge_coeffs_view(edge3, 2), edge_coeffs_view(edge3, 3)});
-
     int inoroutflag1 = inoroutWline(v1coords, v2coords, v3coords, {edge_coeffs_view(edge1, 0), edge_coeffs_view(edge1, 1), edge_coeffs_view(edge1, 2), edge_coeffs_view(edge1, 3), edge_coeffs_view(edge1, 4), edge_coeffs_view(edge1, 5)});
     int inoroutflag2 = inoroutWline(v1coords, v2coords, v3coords, {edge_coeffs_view(edge2, 0), edge_coeffs_view(edge2, 1), edge_coeffs_view(edge2, 2), edge_coeffs_view(edge2, 3), edge_coeffs_view(edge2, 4), edge_coeffs_view(edge2, 5)});
     int inoroutflag3 = inoroutWline(v1coords, v2coords, v3coords, {edge_coeffs_view(edge3, 0), edge_coeffs_view(edge3, 1), edge_coeffs_view(edge3, 2), edge_coeffs_view(edge3, 3), edge_coeffs_view(edge3, 4), edge_coeffs_view(edge3, 5)});
 
-
-    if (printflag) {
-      // print the inorout flag for each edge (edge: inoroutflag)
-      std::cout << "Edge " << edge1 << ": " << inoroutflag1 << ", Edge " << edge2 << ": " << inoroutflag2 << ", Edge " << edge3 << ": " << inoroutflag3 << "\n";
-    }
-
-    // store the faces and inorout flags in a file
-    face2edgemap_file << i << " " << edge1 << " " << inoroutflag1 << " " << edge2 << " " << inoroutflag2 << " " << edge3 << " " << inoroutflag3 << "\n";
-  }
+    // store the edges and inorout flags in the face2edgemap view
+    face2edgemap(i, 0) = edge1;
+    face2edgemap(i, 1) = inoroutflag1;
+    face2edgemap(i, 2) = edge2;
+    face2edgemap(i, 3) = inoroutflag2;
+    face2edgemap(i, 4) = edge3;
+    face2edgemap(i, 5) = inoroutflag3;
+  };
 
   // loop over all faces
-  //Omega_h::parallel_for(mesh.nfaces(), create_face2edgemap);
-  face2edgemap_file.close();
-
-
-/*
-  // TODO: Remove this following code
-  // return type Omega_h::Reals derived from Omega_h::Read<Omega_h::Real>
-  const auto coords = mesh.coords(); // ? returns a Reals object: Read<Real> object: Real is double
-  // array of type Omega_h::Write must be used when modified as below
-  const Omega_h::Write<Omega_h::Real> u_w(mesh.nverts());
-  // Omega_h::LO is a 32 bits int for local indexes on each proc
-  const auto initialize_u = OMEGA_H_LAMBDA(Omega_h::LO r) {
-    // get_vector<2> abstracts the storage convention inside coords array
-    const auto x_r = Omega_h::get_vector<2>(coords, r);
-    // quadratic 2d function between -1 and 1 on the square [0,1] x [0,1]
-    u_w[r] = x_r[1] - std::pow(2 * x_r[0] - 1, 2);
-  };
-  // encapsulates Kokkos::parallel_for
-  Omega_h::parallel_for(mesh.nverts(), initialize_u);
-
-  // write the coordinates of the vertices to the terminal
-  for (Omega_h::LO i = 0; i < mesh.nverts(); ++i) {
-    const auto x_i = Omega_h::get_vector<2>(coords, i);
-    std::cout << x_i[0] << " " << x_i[1] << "\n";
+  Omega_h::parallel_for(mesh.nfaces(), create_face2edgemap);
+  // write out the face to edge map to a file
+  for (Omega_h::LO i = 0; i < mesh.nfaces(); ++i) {
+    face2edgemap_file << i << " " << face2edgemap(i, 0) << " " << face2edgemap(i, 1) << " " << face2edgemap(i, 2) << " " << face2edgemap(i, 3) << " " << face2edgemap(i, 4) << " " << face2edgemap(i, 5) << "\n";
   }
-  */
+  face2edgemap_file.close();
 
   return 0;
 }
