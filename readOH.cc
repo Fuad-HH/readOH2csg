@@ -3,6 +3,7 @@
 #include <fstream>
 #include <vector>
 #include <string>
+#include <chrono>
 #include <Kokkos_Core.hpp>
 
 #include "Omega_h_file.hpp"
@@ -71,6 +72,7 @@ int above_or_below_line(Omega_h::Vector<2> point, std::vector<double> coeffs);
  * \brief Read the mesh file and go to each vertex to get its coordinates
 */
 int main(int argc, char** argv) {
+  auto start = std::chrono::steady_clock::now();
   // calls MPI_init(&argc, &argv) and Kokkos::initialize(argc, argv)
   auto lib = Omega_h::Library(&argc, &argv);
   // encapsulates many MPI functions, e.g., world.barrier()
@@ -97,6 +99,8 @@ int main(int argc, char** argv) {
   // ******** Get the boundary entities ******** //
   std::vector<int> bdrs;
 
+  auto setup_time = std::chrono::steady_clock::now();
+  std::cout << "Setup time: " << std::chrono::duration_cast<std::chrono::milliseconds>(setup_time - start).count() << "ms\n";
   // get boundary with mark_exposed_sides function
   auto exposed_sides = Omega_h::mark_exposed_sides(&mesh);
   for (Omega_h::LO i = 0; i < exposed_sides.size(); ++i) {
@@ -104,6 +108,9 @@ int main(int argc, char** argv) {
       bdrs.push_back(int(i));
     }
   }
+
+  auto bdrs_time = std::chrono::steady_clock::now();
+  std::cout << "Boundary time: " << std::chrono::duration_cast<std::chrono::milliseconds>(bdrs_time - setup_time).count() << "ms\n";
 
 
   // *********** Read all the edges of the mesh *********** //
@@ -117,6 +124,9 @@ int main(int argc, char** argv) {
 
   std::ofstream edge_coeffs_file;
   edge_coeffs_file.open("edge_coeffs.dat");
+
+  auto mesh_query_time = std::chrono::steady_clock::now();
+  std::cout << "Mesh query time: " << std::chrono::duration_cast<std::chrono::milliseconds>(mesh_query_time - bdrs_time).count() << "ms\n";
 
   // * Step 1: loop over all edges and print the associated vertices
   const auto create_edge_coeffs = OMEGA_H_LAMBDA(Omega_h::LO i) {
@@ -162,6 +172,9 @@ int main(int argc, char** argv) {
   };
   // loop over all edges
   Omega_h::parallel_for(mesh.nedges(), create_edge_coeffs);
+
+  auto edge_calc_time = std::chrono::steady_clock::now();
+  std::cout << "Edge calculation time: " << std::chrono::duration_cast<std::chrono::milliseconds>(edge_calc_time - mesh_query_time).count() << "ms\n";
   // write out the coefficients to a file
   for (Omega_h::LO i = 0; i < mesh.nedges(); ++i) {
     edge_coeffs_file << i << " " << edge_coeffs_view(i, 0) << " " << edge_coeffs_view(i, 1) << " " << edge_coeffs_view(i, 2) << " " << edge_coeffs_view(i, 3) << " " << edge_coeffs_view(i, 4) << "\n";
@@ -172,6 +185,9 @@ int main(int argc, char** argv) {
     edge_coeffs_file << bdrs[i] << " ";
   }
   edge_coeffs_file.close();
+
+  auto edge_file_time = std::chrono::steady_clock::now();
+  std::cout << "Edge file write time: " << std::chrono::duration_cast<std::chrono::milliseconds>(edge_file_time - edge_calc_time).count() << "ms\n";
 
   std::ofstream face2edgemap_file;
   face2edgemap_file.open("face2edgemap.dat");
@@ -187,6 +203,8 @@ int main(int argc, char** argv) {
   // a kokkos view to store the face to edge map
   auto face2edgemap = Kokkos::View<int*[6]>("face2edgemap", mesh.nfaces());
 
+  auto face_query_time = std::chrono::steady_clock::now();
+  std::cout << "Face query time: " << std::chrono::duration_cast<std::chrono::milliseconds>(face_query_time - edge_file_time).count() << "ms\n";
   //for (Omega_h::LO i = 0; i < mesh.nfaces(); ++i) {
   const auto create_face2edgemap = OMEGA_H_LAMBDA(Omega_h::LO i) {
     auto edge1 = face2edgeEdges[3*i];
@@ -229,12 +247,18 @@ int main(int argc, char** argv) {
 
   // loop over all faces
   Omega_h::parallel_for(mesh.nfaces(), create_face2edgemap);
+
+  auto face_calc_time = std::chrono::steady_clock::now();
+  std::cout << "Face calculation time: " << std::chrono::duration_cast<std::chrono::milliseconds>(face_calc_time - face_query_time).count() << "ms\n";
   // write out the face to edge map to a file
   for (Omega_h::LO i = 0; i < mesh.nfaces(); ++i) {
     face2edgemap_file << i << " " << face2edgemap(i, 0) << " " << face2edgemap(i, 1) << " " << face2edgemap(i, 2) << " " << face2edgemap(i, 3) << " " << face2edgemap(i, 4) << " " << face2edgemap(i, 5) << "\n";
   }
   face2edgemap_file.close();
 
+  auto face_file_time = std::chrono::steady_clock::now();
+  std::cout << "Face file write time: " << std::chrono::duration_cast<std::chrono::milliseconds>(face_file_time - face_calc_time).count() << "ms\n";
+  std::cout << "Total time: " << std::chrono::duration_cast<std::chrono::milliseconds>(face_file_time - start).count() << "ms\n";
   return 0;
 }
 
