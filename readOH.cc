@@ -10,7 +10,9 @@
 #include "Omega_h_for.hpp"
 #include "Omega_h_mesh.hpp"
 #include "Omega_h_mark.hpp"
+#include "Omega_h_bbox.hpp"
 
+#include <netcdf>
 /**
  * The equation of the line is:
  *     y = mx + c
@@ -258,7 +260,75 @@ int main(int argc, char** argv) {
 
   auto face_file_time = std::chrono::steady_clock::now();
   std::cout << "Face file write time: " << std::chrono::duration_cast<std::chrono::milliseconds>(face_file_time - face_calc_time).count() << "ms\n";
+  
+  
+  // *********** Write to netcdf file *********** //
+  // create a netcdf file
+  std::string nc_filename = "degas2_geometry.nc";
+  netCDF::NcFile ncFile(nc_filename, netCDF::NcFile::replace);
+
+  // create dimensions for scalars: number of edges and faces
+  netCDF::NcDim scalars = ncFile.addDim("scalars", 1);
+  netCDF::NcVar nfacesVar = ncFile.addVar("ncells", netCDF::ncInt, scalars);
+  netCDF::NcVar nedgesVar = ncFile.addVar("nsurfaces", netCDF::ncInt, scalars);
+
+  // write the number of edges and faces
+  int nfaces = mesh.nfaces();
+  int nedges = mesh.nedges();
+  nfacesVar.putVar(&nfaces);
+  nedgesVar.putVar(&nedges);
+
+  // assert that the mesh.dim == 2
+  assert(mesh.dim() == 2); // only 2D meshes are used here
+
+  // get the mesh bounding box
+  Omega_h::BBox<2> bbox = Omega_h::get_bounding_box<2>(&mesh);
+  Omega_h::Vector<2> min = bbox.min;
+  Omega_h::Vector<2> max = bbox.max;
+
+  // print the bounding box
+  std::cout << "Bounding box: " << min[0] << " " << min[1] << " " << max[0] << " " << max[1] << "\n";
+
+  std::vector<double> universal_cell_min = {-max[0], -max[0], min[1]};
+  std::vector<double> universal_cell_max = {max[0], max[0], max[1]};
+
+  // write the bounding box to the netcdf file
+  netCDF::NcDim bbox_dim = ncFile.addDim("bbox_dim", 3);
+  netCDF::NcVar bboxMinVar = ncFile.addVar("universal_cell_min", netCDF::ncDouble, bbox_dim);
+  netCDF::NcVar bboxMaxVar = ncFile.addVar("universal_cell_max", netCDF::ncDouble, bbox_dim);
+  bboxMinVar.putAtt("units", "m");
+  bboxMaxVar.putAtt("units", "m");
+  bboxMinVar.putVar(universal_cell_min.data());
+  bboxMaxVar.putVar(universal_cell_max.data());
+
+  // write cells data to the netcdf file
+  netCDF::NcDim cells_dim = ncFile.addDim("cells_dim", mesh.nfaces()*4);
+  netCDF::NcVar cellsVar = ncFile.addVar("cells", netCDF::ncInt, cells_dim);
+  cellsVar.putAtt("units", "index");
+  std::vector<int> cells_data(nfaces*4, -1);
+
+  for (Omega_h::LO i = 0; i < mesh.nfaces(); ++i) {
+    cells_data[4*i] = i;
+    cells_data[4*i + 1] = face2edgemap(i, 0)*face2edgemap(i, 1);
+    cells_data[4*i + 2] = face2edgemap(i, 2)*face2edgemap(i, 3);
+    cells_data[4*i + 3] = face2edgemap(i, 4)*face2edgemap(i, 5);
+  }
+  cellsVar.putVar(cells_data.data());
+
+
+
+
+
+
+  // close the netcdf file
+  ncFile.close();
+
+  auto nc_file_time = std::chrono::steady_clock::now();
+  std::cout << "NetCDF file write time: " << std::chrono::duration_cast<std::chrono::milliseconds>(nc_file_time - face_file_time).count() << "ms\n";
+
   std::cout << "Total time: " << std::chrono::duration_cast<std::chrono::milliseconds>(face_file_time - start).count() << "ms\n";
+
+  
   return 0;
 }
 
