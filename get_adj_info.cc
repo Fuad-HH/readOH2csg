@@ -1,4 +1,5 @@
 #include <Kokkos_Core.hpp>
+#include <Omega_h_fail.hpp>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
@@ -76,6 +77,14 @@ int inoroutWline(Omega_h::Vector<2> vert1, Omega_h::Vector<2> vert2,
  * @return int 1 if above, -1 if below
  */
 int above_or_below_line(Omega_h::Vector<2> point, std::vector<double> coeffs);
+
+/**
+ * @brief Get the closest node to the vertical axis
+ *
+ * @param mesh The mesh object
+ * @return int The index of the closest node
+ */
+int get_closest_node_to_vertical_axis(const Omega_h::Mesh &mesh);
 
 /*!
  * \brief Read the mesh file and go to each vertex to get its coordinates
@@ -201,9 +210,10 @@ int main(int argc, char **argv) {
                    .count()
             << "ms\n";
   // write out the coefficients to a file
-  //for (Omega_h::LO i = 0; i < mesh.nedges(); ++i) {
+  // for (Omega_h::LO i = 0; i < mesh.nedges(); ++i) {
   //  edge_coeffs_file << i << " " << edge_coeffs_view(i, 0) << " "
-  //                   << edge_coeffs_view(i, 1) << " " << edge_coeffs_view(i, 2)
+  //                   << edge_coeffs_view(i, 1) << " " << edge_coeffs_view(i,
+  //                   2)
   //                   << " " << edge_coeffs_view(i, 3) << " "
   //                   << edge_coeffs_view(i, 4) << "\n";
   //}
@@ -305,10 +315,12 @@ int main(int argc, char **argv) {
                    .count()
             << "ms\n";
   // write out the face to edge map to a file
-  //for (Omega_h::LO i = 0; i < mesh.nfaces(); ++i) {
+  // for (Omega_h::LO i = 0; i < mesh.nfaces(); ++i) {
   //  face2edgemap_file << i << " " << face2edgemap(i, 0) << " "
-  //                    << face2edgemap(i, 1) << " " << face2edgemap(i, 2) << " "
-  //                    << face2edgemap(i, 3) << " " << face2edgemap(i, 4) << " "
+  //                    << face2edgemap(i, 1) << " " << face2edgemap(i, 2) << "
+  //                    "
+  //                    << face2edgemap(i, 3) << " " << face2edgemap(i, 4) << "
+  //                    "
   //                    << face2edgemap(i, 5) << "\n";
   //}
   face2edgemap_file.close();
@@ -321,8 +333,9 @@ int main(int argc, char **argv) {
             << "ms\n";
 
   // *********** Write to netcdf file *********** //
+  // ******************************************** //
   // create a netcdf file
-  std::string nc_filename = "degas2_geometry.nc";
+  std::string nc_filename = "osh2degas2in.nc";
   netCDF::NcFile ncFile(nc_filename, netCDF::NcFile::replace);
 
   // create dimensions for scalars: number of edges and faces
@@ -330,7 +343,7 @@ int main(int argc, char **argv) {
   netCDF::NcVar nfacesVar = ncFile.addVar("ncells", netCDF::ncInt, scalars);
   netCDF::NcVar nedgesVar = ncFile.addVar("nsurfaces", netCDF::ncInt, scalars);
 
-  // write the number of edges and faces
+  // * write the number of edges and faces
   int nfaces = mesh.nfaces();
   int nedges = mesh.nedges();
   nfacesVar.putVar(&nfaces);
@@ -339,7 +352,7 @@ int main(int argc, char **argv) {
   // assert that the mesh.dim == 2
   assert(mesh.dim() == 2); // only 2D meshes are used here
 
-  // get the mesh bounding box
+  // * get the mesh bounding box
   Omega_h::BBox<2> bbox = Omega_h::get_bounding_box<2>(&mesh);
   Omega_h::Vector<2> min = bbox.min;
   Omega_h::Vector<2> max = bbox.max;
@@ -351,7 +364,7 @@ int main(int argc, char **argv) {
   std::vector<double> universal_cell_min = {-max[0], -max[0], min[1]};
   std::vector<double> universal_cell_max = {max[0], max[0], max[1]};
 
-  // write the bounding box to the netcdf file
+  // * write the bounding box to the netcdf file
   netCDF::NcDim bbox_dim = ncFile.addDim("bbox_dim", 3);
   netCDF::NcVar bboxMinVar =
       ncFile.addVar("universal_cell_min", netCDF::ncDouble, bbox_dim);
@@ -362,99 +375,219 @@ int main(int argc, char **argv) {
   bboxMinVar.putVar(universal_cell_min.data());
   bboxMaxVar.putVar(universal_cell_max.data());
 
-  // write cells data to the netcdf file
-  netCDF::NcDim cells_nfaces_dim = ncFile.addDim("cell_ind", nfaces);
-  netCDF::NcDim cells_4_info_dim = ncFile.addDim("cell_info_ind", 4);
-  std::vector<netCDF::NcDim> cells_dims{cells_4_info_dim, cells_nfaces_dim};
-  netCDF::NcVar cellsVar = ncFile.addVar("cells", netCDF::ncInt, cells_dims);
-  cellsVar.putAtt("units", "index");
-  std::vector<std::vector<int>> cells_data(4, std::vector<int>(nfaces));
+  // * write the nodes for each edge to the netcdf file
+  netCDF::NcDim edge2node_dim = ncFile.addDim("node_number_dim", 2);
+  netCDF::NcDim edges_dim = ncFile.addDim("edges_dim", nedges);
+  std::vector<netCDF::NcDim> edge_dims{edges_dim, edge2node_dim};
+  netCDF::NcVar edge2nodeVar =
+      ncFile.addVar("edge2nodemap", netCDF::ncInt, edge_dims);
 
-  for (size_t i = 0; i < nfaces; ++i) {
-    cells_data[0][i] = 6 * i;
-    cells_data[1][i] = 3;
-    cells_data[2][i] = 6;
-    cells_data[3][i] = i;
-  }
-
-  std::vector<int> flat_cells_data;
-  for (auto &row : cells_data) {
-    flat_cells_data.insert(flat_cells_data.end(), row.begin(), row.end());
-  }
-  cellsVar.putVar(flat_cells_data.data());
-  // cellsVar.putVar(cells_data.data());
-
-  // write the cells coefficients: surface_coeffs[nfaces][10]
-  netCDF::NcDim surface_coeffs_nsurface_dim =
-      ncFile.addDim("surface_coeffs_nsurface_dim", nedges * 2);
-  netCDF::NcDim surface_coeffs_ncoeff_dim =
-      ncFile.addDim("surface_coeffs_ncoeff_dim", 10);
-  std::vector<netCDF::NcDim> dims{surface_coeffs_nsurface_dim,
-                                  surface_coeffs_ncoeff_dim};
-  netCDF::NcVar surface_coeffsVar =
-      ncFile.addVar("surface_coeffs", netCDF::ncDouble, dims);
-
-  // create the surface_coeffs array nedges by 10
-  // c0 + c1*x + c2*y + c3*z + c4*x^2 + c5*y^2 + c6*z^2 + c7*x*y + c8*y*z +
-  // c9*z*x and each edge has a cut surface edge
-  int totalNedge = nedges * 2;
-  std::vector<std::array<double, 10>> surface_coeffs(
-      totalNedge, {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0});
+  // get the adjacency for the edges
+  auto edge2node = mesh.get_adj(Omega_h::EDGE, Omega_h::VERT);
+  auto edge2nodeNodes = edge2node.ab2b;
+  // create the edge2node array nedges by 2
+  std::vector<std::array<int, 2>> edge2node_data(nedges);
   for (Omega_h::LO i = 0; i < nedges; ++i) {
-    surface_coeffs[i][0] = edge_coeffs_view(i, 3);
-    // surface_coeffs[i][1] = 0.0;
-    // surface_coeffs[i][2] = 0.0;
-    surface_coeffs[i][3] = edge_coeffs_view(i, 2);
-    surface_coeffs[i][4] = edge_coeffs_view(i, 0);
-    surface_coeffs[i][5] = edge_coeffs_view(i, 0);
-    surface_coeffs[i][6] = edge_coeffs_view(i, 1);
-    // surface_coeffs[i][7] = 0.0;
-    // surface_coeffs[i][8] = 0.0;
-    // surface_coeffs[i][9] = 0.0;
-
-    // for the cut surface edge z - z0 = 0
-    // if c6 is not -1 the edge is not a cone
-    surface_coeffs[nedges + i][0] =
-        std::abs(edge_coeffs_view(i, 1) + 1.0) > 1e-10
-            ? 10e12
-            : edge_coeffs_view(i, 3) / 2.0;
-    // surface_coeffs[nedges + i][1] = 0.0;
-    // surface_coeffs[nedges + i][2] = 0.0;
-    surface_coeffs[nedges + i][3] = 1.0;
-    // surface_coeffs[nedges + i][4] = 0.0;
-    // surface_coeffs[nedges + i][5] = 0.0;
-    // surface_coeffs[nedges + i][6] = 0.0;
-    // surface_coeffs[nedges + i][7] = 0.0;
-    // surface_coeffs[nedges + i][8] = 0.0;
-    // surface_coeffs[nedges + i][9] = 0.0;
+    edge2node_data[i][0] = edge2nodeNodes[2 * i];
+    edge2node_data[i][1] = edge2nodeNodes[2 * i + 1];
   }
-  surface_coeffsVar.putVar(surface_coeffs.data());
+  edge2nodeVar.putVar(edge2node_data.data());
 
-  // write boundary array to the netcdf file
+  // * write element to edge map to the netcdf file
+  netCDF::NcDim face2edge_dim = ncFile.addDim("edge_number_dim", 3);
+  netCDF::NcDim faces_dim = ncFile.addDim("faces_dim", nfaces);
+  std::vector<netCDF::NcDim> face_dims{faces_dim, face2edge_dim};
+  netCDF::NcVar face2edgeVar =
+      ncFile.addVar("face2edgemap", netCDF::ncInt, face_dims);
 
-  // for each cell, it is bounded by 3 edges and 1 cut surface edge
-  netCDF::NcDim boundary_dim = ncFile.addDim("boundary_dim", nfaces * 6);
-  netCDF::NcVar boundaryVar =
-      ncFile.addVar("boundaries", netCDF::ncInt, boundary_dim);
-  boundaryVar.putAtt("units", "index");
-  std::vector<int> boundary_data(nfaces * 6, -1);
-  for (Omega_h::LO i = 0; i < mesh.nfaces(); ++i) {
-    int edge1 = face2edgemap(i, 0);
-    int edge2 = face2edgemap(i, 2);
-    int edge3 = face2edgemap(i, 4);
-    boundary_data[6 * i] = edge1 * face2edgemap(i, 1);
-    boundary_data[6 * i + 1] = edge2 * face2edgemap(i, 3);
-    boundary_data[6 * i + 2] = edge3 * face2edgemap(i, 5);
-    // *cut surface edges
-    // the above three surfacecs will have cut surfaces and their sign will
-    // depend on the topbottomflag
-    boundary_data[6 * i + 3] = (nedges + edge1) * edge_coeffs_view(edge1, 4);
-    boundary_data[6 * i + 4] = (nedges + edge1) * edge_coeffs_view(edge2, 4);
-    boundary_data[6 * i + 5] = (nedges + edge1) * edge_coeffs_view(edge3, 4);
+  // create the face2edge array nfaces by 3
+  std::vector<std::array<int, 3>> face2edge_data(nfaces);
+  for (Omega_h::LO i = 0; i < nfaces; ++i) {
+    face2edge_data[i][0] = face2edgemap(i, 0);
+    face2edge_data[i][1] = face2edgemap(i, 2);
+    face2edge_data[i][2] = face2edgemap(i, 4);
   }
-  boundaryVar.putVar(boundary_data.data());
+  face2edgeVar.putVar(face2edge_data.data());
 
-  // neighbour array to the netcdf file
+  // * write edge to face map to the netcdf file
+  netCDF::NcDim edge2face_dim = ncFile.addDim("face_number_dim", 4);
+  std::vector<netCDF::NcDim> edge2face_dims{edges_dim, edge2face_dim};
+  netCDF::NcVar edge2faceVar =
+      ncFile.addVar("edge2facemap", netCDF::ncInt, edge2face_dims);
+
+  // create the edge2face array nedges by 2
+  std::vector<std::array<int, 4>> edge2face_data(nedges);
+  auto edge2face = mesh.get_adj(Omega_h::EDGE, Omega_h::FACE);
+  auto edge2faceFaces = edge2face.ab2b;
+  // for this case, offset is important because one edge can have 2 faces
+  // (internal) or 1 face (boundary)
+  auto edge2faceOffsets = edge2face.a2ab;
+  // if only one face, put -1 in the second entry
+  for (Omega_h::LO i = 0; i < nedges; ++i) {
+    edge2face_data[i][0] = edge2faceFaces[edge2faceOffsets[i]];
+    edge2face_data[i][1] = (edge2faceOffsets[i + 1] - edge2faceOffsets[i] == 1)
+                               ? -1
+                               : edge2faceFaces[edge2faceOffsets[i] + 1];
+    // get the inorout flag for the edge
+    std::vector<int> face0edges = {face2edgemap(edge2face_data[i][0], 0),
+                                   face2edgemap(edge2face_data[i][0], 2),
+                                   face2edgemap(edge2face_data[i][0], 4)};
+    for (int j = 0; j < 3; ++j) {
+      if (face0edges[j] == i) {
+        edge2face_data[i][2] = face2edgemap(edge2face_data[i][0], 2 * j + 1);
+        break;
+      }
+    }
+    // same for the second face only if it exists
+    if (edge2face_data[i][1] != -1) {
+      std::vector<int> face1edges = {face2edgemap(edge2face_data[i][1], 0),
+                                     face2edgemap(edge2face_data[i][1], 2),
+                                     face2edgemap(edge2face_data[i][1], 4)};
+      for (int j = 0; j < 3; ++j) {
+        if (face1edges[j] == i) {
+          edge2face_data[i][3] = face2edgemap(edge2face_data[i][1], 2 * j + 1);
+          break;
+        }
+      }
+    } else /* 0 if only one face*/ {
+      edge2face_data[i][3] = 0;
+    }
+  }
+  edge2faceVar.putVar(edge2face_data.data());
+
+  // * write the coordinates of the vertices to the netcdf file
+  netCDF::NcDim vertices_dim = ncFile.addDim("vertices_dim", mesh.nverts());
+  netCDF::NcDim coords_dim = ncFile.addDim("coords_dim", 2);
+  std::vector<netCDF::NcDim> coords_dims{vertices_dim, coords_dim};
+  netCDF::NcVar coordsVar =
+      ncFile.addVar("coords", netCDF::ncDouble, coords_dims);
+
+  // create the coords array nverts by 2
+  std::vector<std::array<double, 2>> coords_data(mesh.nverts());
+
+  auto coords = mesh.coords();
+  for (Omega_h::LO i = 0; i < mesh.nverts(); ++i) {
+    auto vcoords = Omega_h::get_vector<2>(coords, i);
+    coords_data[i][0] = vcoords[0];
+    coords_data[i][1] = vcoords[1];
+  }
+  coordsVar.putVar(coords_data.data());
+
+  // * write the boundary edges to the netcdf file
+  netCDF::NcDim bdrs_dim = ncFile.addDim("bdrs_dim", bdrs.size());
+  netCDF::NcVar bdrsVar =
+      ncFile.addVar("boundary_edges", netCDF::ncInt, bdrs_dim);
+
+  // * write the boundary nodes to the netcdf file
+  netCDF::NcDim bdrnodes_dim = ncFile.addDim("bdrnodes_dim", bdrs.size());
+  netCDF::NcVar bdrnodesVar =
+      ncFile.addVar("boundary_nodes", netCDF::ncInt, bdrnodes_dim);
+
+  // boundary nodes are a sequence of nodes in the boundary edges
+  std::vector<int> bdrnodes(bdrs.size());
+  std::vector<int> sorted_boundary_edges(bdrs.size());
+
+  // * boundary sorting loop
+  // the boundary edges and nodes has to be sorted starting from the node that
+  // is the smallest in the x direction and then move in the clockwise direction
+
+  const int closest_node = get_closest_node_to_vertical_axis(mesh);
+  int current_node = closest_node;
+  std::cout << "Closest node to the vertical axis: " << closest_node << "\n";
+
+  // node to edge map
+  auto node2edge = mesh.ask_up(0, 1);
+  auto node2edgeEdges = node2edge.ab2b;
+  auto node2edgeOffsets = node2edge.a2ab;
+
+  bdrnodes[0] = current_node;
+  for (int i = 0; i < bdrs.size(); ++i) {
+    // get the adjacent edges to the closest node
+    int nAdjacentEdges =
+        node2edgeOffsets[current_node + 1] - node2edgeOffsets[current_node];
+    std::vector<int> adjacentEdges(nAdjacentEdges);
+    for (int j = 0; j < nAdjacentEdges; ++j) {
+      adjacentEdges[j] = node2edgeEdges[node2edgeOffsets[current_node] + j];
+    }
+
+    // get the 2 adjacent edges that are exposed
+    std::vector<int> exposedAdjacentEdges;
+    for (int j = 0; j < nAdjacentEdges; ++j) {
+      if (exposed_sides[adjacentEdges[j]]) {
+        exposedAdjacentEdges.push_back(adjacentEdges[j]);
+      }
+    }
+
+    // get the other 2 nodes of the exposed edges
+    std::vector<int> exposedAdjacentNodes(2);
+    for (int j = 0; j < 2; ++j) {
+      // get nodes of the edge
+      std::vector<int> edge_nodes = {
+          edge2nodeNodes[2 * exposedAdjacentEdges[j]],
+          edge2nodeNodes[2 * exposedAdjacentEdges[j] + 1]};
+      if (edge_nodes[0] == current_node) {
+        exposedAdjacentNodes[j] = edge_nodes[1];
+      } else {
+        exposedAdjacentNodes[j] = edge_nodes[0];
+      }
+    }
+    int next_edge = -1;
+    int next_node = -1;
+    if (i == 0) { // for the initial case it needs to get the upward node
+      // get current node coordinates
+      auto current_node_coords = Omega_h::get_vector<2>(coords, current_node);
+      // get the coordinates of the exposed adjacent nodes
+      auto exposed_node1_coords =
+          Omega_h::get_vector<2>(coords, exposedAdjacentNodes[0]);
+      auto exposed_node2_coords =
+          Omega_h::get_vector<2>(coords, exposedAdjacentNodes[1]);
+      // next node will be the one that is below the current node : 2nd
+      // coordinate is lower
+
+      if (exposed_node1_coords[1] > exposed_node2_coords[1]) {
+        next_node = exposedAdjacentNodes[0];
+        next_edge = exposedAdjacentEdges[0];
+      } else {
+        next_node = exposedAdjacentNodes[1];
+        next_edge = exposedAdjacentEdges[1];
+      }
+      // store the boundary edge and node
+      sorted_boundary_edges[0] = next_edge;
+      bdrnodes[1] = next_node;
+    } else {
+      // get the next node and edge based on if it is already the last edge or
+      // node
+
+      int prev_node = bdrnodes[i - 1];
+      int prev_edge = sorted_boundary_edges[i - 1];
+      // among exposedAdjacentNodes, and exposedAdjacentEdges, get the one that
+      // is not prev_node
+      for (int j = 0; j < 2; ++j) {
+        if (exposedAdjacentNodes[j] != prev_node) {
+          next_node = exposedAdjacentNodes[j];
+          next_edge = exposedAdjacentEdges[j];
+          break;
+        }
+      }
+      // store the boundary edge and node
+      sorted_boundary_edges[i] = next_edge;
+      // if it is the last one then the node is already stored
+      if (i != bdrs.size() - 1) {
+        bdrnodes[i + 1] = next_node;
+      }
+    }
+
+    // std::cout << "Current node: " << current_node << " Next node: " <<
+    // next_node << "\n"; std::cout << "Next edge: " << next_edge << "\n";
+
+    // update the current node
+    current_node = next_node;
+  }
+
+  bdrsVar.putVar(sorted_boundary_edges.data());
+  bdrnodesVar.putVar(bdrnodes.data());
+
+  // * done writing to the netcdf file
 
   // close the netcdf file
   ncFile.close();
@@ -473,6 +606,27 @@ int main(int argc, char **argv) {
             << "ms\n";
 
   return 0;
+}
+
+int get_closest_node_to_vertical_axis(const Omega_h::Mesh &mesh) {
+  // get the coordinates of the vertices
+  auto coords = mesh.coords();
+  // loop thourgh all the vertices and save the i of the closest node
+  int closest_node = 0;
+  double distance = 1e10;
+  for (Omega_h::LO i = 0; i < mesh.nverts(); ++i) {
+    auto vcoords = Omega_h::get_vector<2>(coords, i);
+    // the 1st coordinate is distance from the vertical axis
+    if (vcoords[0] < distance) {
+      distance = vcoords[0];
+      closest_node = i;
+    }
+  }
+  OMEGA_H_CHECK(distance < 1e10);
+  OMEGA_H_CHECK(closest_node < mesh.nverts());
+  OMEGA_H_CHECK(distance > 0.0);
+
+  return closest_node;
 }
 
 std::vector<double> compute_coefficients(Omega_h::Few<double, 2> &vert1,
