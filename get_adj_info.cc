@@ -375,6 +375,30 @@ int main(int argc, char **argv) {
   bboxMinVar.putVar(universal_cell_min.data());
   bboxMaxVar.putVar(universal_cell_max.data());
 
+  // *** write map between node number to simNumbering
+  netCDF::NcDim node2sim_dim = ncFile.addDim("sim_number_dim", mesh.nverts());
+  netCDF::NcVar node2simVar =
+      ncFile.addVar("node2simNumberingmap", netCDF::ncInt, node2sim_dim);
+  
+  // get the node numbering simNumber from the mesh
+  std::vector<int> node2sim(mesh.nverts());
+  if(!mesh.has_tag(0, "simNumbering")){
+    std::cerr << "No simNumbering tag found on vertices\n";
+    return 1;
+  }
+
+  auto simNumbering = mesh.get_array<Omega_h::LO>(0, "simNumbering");
+  for (Omega_h::LO i = 0; i < mesh.nverts(); ++i) {
+    node2sim[i] = simNumbering[i];
+  }
+  node2simVar.putVar(node2sim.data());
+
+  // a reverse map from simNumbering to node number
+  std::vector<int> sim2node(mesh.nverts());
+  for (Omega_h::LO i = 0; i < mesh.nverts(); ++i) {
+    sim2node[simNumbering[i]] = i;
+  }
+
   // * write the nodes for each edge to the netcdf file
   netCDF::NcDim edge2node_dim = ncFile.addDim("node_number_dim", 2);
   netCDF::NcDim edges_dim = ncFile.addDim("edges_dim", nedges);
@@ -388,8 +412,8 @@ int main(int argc, char **argv) {
   // create the edge2node array nedges by 2
   std::vector<std::array<int, 2>> edge2node_data(nedges);
   for (Omega_h::LO i = 0; i < nedges; ++i) {
-    edge2node_data[i][0] = edge2nodeNodes[2 * i];
-    edge2node_data[i][1] = edge2nodeNodes[2 * i + 1];
+    edge2node_data[i][0] = node2sim[edge2nodeNodes[2*i]]; //edge2nodeNodes[2 * i];
+    edge2node_data[i][1] = node2sim[edge2nodeNodes[2*i + 1]]; //edge2nodeNodes[2 * i + 1];
   }
   edge2nodeVar.putVar(edge2node_data.data());
 
@@ -456,20 +480,22 @@ int main(int argc, char **argv) {
   edge2faceVar.putVar(edge2face_data.data());
 
   // * write the coordinates of the vertices to the netcdf file
-  netCDF::NcDim vertices_dim = ncFile.addDim("vertices_dim", mesh.nverts());
+  netCDF::NcDim vertices_dim = ncFile.addDim("vertices_dim", mesh.nverts()+1); // simNumbering starts from 1
   netCDF::NcDim coords_dim = ncFile.addDim("coords_dim", 2);
   std::vector<netCDF::NcDim> coords_dims{vertices_dim, coords_dim};
   netCDF::NcVar coordsVar =
       ncFile.addVar("coords", netCDF::ncDouble, coords_dims);
 
   // create the coords array nverts by 2
-  std::vector<std::array<double, 2>> coords_data(mesh.nverts());
+  std::vector<std::array<double, 2>> coords_data(mesh.nverts()+1);
 
   auto coords = mesh.coords();
   for (Omega_h::LO i = 0; i < mesh.nverts(); ++i) {
     auto vcoords = Omega_h::get_vector<2>(coords, i);
-    coords_data[i][0] = vcoords[0];
-    coords_data[i][1] = vcoords[1];
+    //coords_data[i][0] = vcoords[0];
+    //coords_data[i][1] = vcoords[1];
+    coords_data[node2sim[i]][0] = vcoords[0];
+    coords_data[node2sim[i]][1] = vcoords[1];
   }
   coordsVar.putVar(coords_data.data());
 
@@ -493,7 +519,11 @@ int main(int argc, char **argv) {
 
   const int closest_node = get_closest_node_to_vertical_axis(mesh);
   int current_node = closest_node;
-  std::cout << "Closest node to the vertical axis: " << closest_node << "\n";
+  std::cout << "Closest node to the vertical axis: " << closest_node << " and simNumbering is "
+            << node2sim[closest_node] << "\n";
+  std::cout << "Closest Node Coordinates: "
+            << Omega_h::get_vector<2>(coords, closest_node)[0] << " "
+            << Omega_h::get_vector<2>(coords, closest_node)[1] << "\n";
 
   // node to edge map
   auto node2edge = mesh.ask_up(0, 1);
@@ -584,8 +614,15 @@ int main(int argc, char **argv) {
     current_node = next_node;
   }
 
+  // sim numbers of the boundary nodes
+  std::vector<int> bdrnodes_sim(bdrs.size());
+  for (int i = 0; i < bdrs.size(); ++i) {
+    bdrnodes_sim[i] = node2sim[bdrnodes[i]];
+  }
+
   bdrsVar.putVar(sorted_boundary_edges.data());
-  bdrnodesVar.putVar(bdrnodes.data());
+  //bdrnodesVar.putVar(bdrnodes.data());
+  bdrnodesVar.putVar(bdrnodes_sim.data());
 
   // * done writing to the netcdf file
 
