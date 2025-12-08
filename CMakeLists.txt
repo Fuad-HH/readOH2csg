@@ -21,6 +21,9 @@ find_package(PkgConfig REQUIRED)
 find_package(Omega_h REQUIRED)
 pkg_check_modules(netcdf-cxx4 REQUIRED IMPORTED_TARGET netcdf-cxx4)
 
+add_library(timer src/Timer.cpp)
+target_include_directories(timer PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
 add_library(compute_surface src/compute_surface.cpp)
 target_link_libraries(compute_surface PUBLIC Omega_h::omega_h
                                              PkgConfig::netcdf-cxx4)
@@ -31,12 +34,12 @@ add_executable(readOH src/readOH.cc)
 target_link_libraries(readOH PRIVATE Omega_h::omega_h PkgConfig::netcdf-cxx4)
 
 add_executable(get_adj_info src/get_adj_info.cc)
-target_link_libraries(get_adj_info PRIVATE compute_surface)
+target_link_libraries(get_adj_info PRIVATE compute_surface timer)
 
 # ######### INSTALLATION ##########
 
 install(
-  TARGETS readOH get_adj_info compute_surface
+  TARGETS readOH get_adj_info compute_surface timer
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
   ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})

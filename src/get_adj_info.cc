@@ -14,13 +14,17 @@
 #include <Omega_h_mark.hpp>
 #include <netcdf>
 
+#include "Timer.h"
 #include "compute_surface.h"
 
 /*!
  * \brief Read the mesh file and go to each vertex to get its coordinates
  */
 int main(int argc, char **argv) {
-  auto start = std::chrono::steady_clock::now();
+  Timers timers;
+  Timer *main_timer = timers.add("Total");
+  Timer *setup_timer = timers.add("setup");
+
   // calls MPI_init(&argc, &argv) and Kokkos::initialize(argc, argv)
   auto lib = Omega_h::Library(&argc, &argv);
   // encapsulates many MPI functions, e.g., world.barrier()
@@ -46,13 +50,9 @@ int main(int argc, char **argv) {
   // ******** Get the boundary entities ******** //
   std::vector<int> bdrs;
 
-  auto setup_time = std::chrono::steady_clock::now();
-  std::cout << "Setup time: "
-            << std::chrono::duration_cast<std::chrono::milliseconds>(
-                   setup_time - start)
-                   .count()
-            << "ms\n";
-  // get boundary with mark_exposed_sides function
+  setup_timer->stop();
+
+  Timer *boundary_timer = timers.add("boundary extraction");
   auto exposed_sides = Omega_h::mark_exposed_sides(&mesh);
   for (Omega_h::LO i = 0; i < exposed_sides.size(); ++i) {
     if (exposed_sides[i]) {
@@ -60,13 +60,9 @@ int main(int argc, char **argv) {
     }
   }
 
-  auto bdrs_time = std::chrono::steady_clock::now();
-  std::cout << "Boundary time: "
-            << std::chrono::duration_cast<std::chrono::milliseconds>(bdrs_time -
-                                                                     setup_time)
-                   .count()
-            << "ms\n";
+  boundary_timer->stop();
 
+  Timer *mesh_query_timer = timers.add("mesh query");
   // *********** Read all the edges of the mesh *********** //
   // kokkos view to store nedges * 3 doubles : m^2, 2c, -c^2
   auto edge_coeffs_view =
@@ -80,13 +76,9 @@ int main(int argc, char **argv) {
   std::ofstream edge_coeffs_file;
   edge_coeffs_file.open("edge_coeffs.dat");
 
-  auto mesh_query_time = std::chrono::steady_clock::now();
-  std::cout << "Mesh query time: "
-            << std::chrono::duration_cast<std::chrono::milliseconds>(
-                   mesh_query_time - bdrs_time)
-                   .count()
-            << "ms\n";
+  mesh_query_timer->stop();
 
+  Timer *edge_query_timer = timers.add("edge query");
   // * Step 1: loop over all edges and print the associated vertices
   const auto create_edge_coeffs = OMEGA_H_LAMBDA(Omega_h::LO i) {
     auto vert1 = edgeVertices[2 * i];
@@ -133,12 +125,8 @@ int main(int argc, char **argv) {
   // loop over all edges
   Omega_h::parallel_for(mesh.nedges(), create_edge_coeffs);
 
-  auto edge_calc_time = std::chrono::steady_clock::now();
-  std::cout << "Edge calculation time: "
-            << std::chrono::duration_cast<std::chrono::milliseconds>(
-                   edge_calc_time - mesh_query_time)
-                   .count()
-            << "ms\n";
+  edge_query_timer->stop();
+  Timer *edge_file_write_timer = timers.add("edge file write");
   // write out the coefficients to a file
   // for (Omega_h::LO i = 0; i < mesh.nedges(); ++i) {
   //  edge_coeffs_file << i << " " << edge_coeffs_view(i, 0) << " "
@@ -154,13 +142,9 @@ int main(int argc, char **argv) {
   }
   edge_coeffs_file.close();
 
-  auto edge_file_time = std::chrono::steady_clock::now();
-  std::cout << "Edge file write time: "
-            << std::chrono::duration_cast<std::chrono::milliseconds>(
-                   edge_file_time - edge_calc_time)
-                   .count()
-            << "ms\n";
+  edge_file_write_timer->stop();
 
+  Timer *face_query_timer = timers.add("face query");
   std::ofstream face2edgemap_file;
   face2edgemap_file.open("face2edgemap.dat");
   // ********** Reading the Edge done ********** //
@@ -175,12 +159,9 @@ int main(int argc, char **argv) {
   // a kokkos view to store the face to edge map
   auto face2edgemap = Kokkos::View<int *[6]>("face2edgemap", mesh.nfaces());
 
-  auto face_query_time = std::chrono::steady_clock::now();
-  std::cout << "Face query time: "
-            << std::chrono::duration_cast<std::chrono::milliseconds>(
-                   face_query_time - edge_file_time)
-                   .count()
-            << "ms\n";
+  face_query_timer->stop();
+
+  Timer *face_calc_timer = timers.add("face calculation");
   // for (Omega_h::LO i = 0; i < mesh.nfaces(); ++i) {
   const auto create_face2edgemap = OMEGA_H_LAMBDA(Omega_h::LO i) {
     auto edge1 = face2edgeEdges[3 * i];
@@ -238,12 +219,7 @@ int main(int argc, char **argv) {
   // loop over all faces
   Omega_h::parallel_for(mesh.nfaces(), create_face2edgemap);
 
-  auto face_calc_time = std::chrono::steady_clock::now();
-  std::cout << "Face calculation time: "
-            << std::chrono::duration_cast<std::chrono::milliseconds>(
-                   face_calc_time - face_query_time)
-                   .count()
-            << "ms\n";
+  face_calc_timer->stop();
   // write out the face to edge map to a file
   // for (Omega_h::LO i = 0; i < mesh.nfaces(); ++i) {
   //  face2edgemap_file << i << " " << face2edgemap(i, 0) << " "
@@ -255,16 +231,10 @@ int main(int argc, char **argv) {
   //}
   face2edgemap_file.close();
 
-  auto face_file_time = std::chrono::steady_clock::now();
-  std::cout << "Face file write time: "
-            << std::chrono::duration_cast<std::chrono::milliseconds>(
-                   face_file_time - face_calc_time)
-                   .count()
-            << "ms\n";
-
   // *********** Write to netcdf file *********** //
   // ******************************************** //
   // create a netcdf file
+  Timer *nc_file_write_timer = timers.add("netcdf file write");
   std::string nc_filename = "osh2degas2in.nc";
   netCDF::NcFile ncFile(nc_filename, netCDF::NcFile::replace);
 
@@ -519,18 +489,9 @@ int main(int argc, char **argv) {
   // close the netcdf file
   ncFile.close();
 
-  auto nc_file_time = std::chrono::steady_clock::now();
-  std::cout << "NetCDF file write time: "
-            << std::chrono::duration_cast<std::chrono::milliseconds>(
-                   nc_file_time - face_file_time)
-                   .count()
-            << "ms\n";
+  nc_file_write_timer->stop();
+  main_timer->stop();
 
-  std::cout << "Total time: "
-            << std::chrono::duration_cast<std::chrono::milliseconds>(
-                   nc_file_time - start)
-                   .count()
-            << "ms\n";
-
+  timers.print();
   return 0;
 } // main
