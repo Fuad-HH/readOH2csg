@@ -4,3 +4,4 @@ build/
 *.ipynb
 .idea/
 *config.sh
+check-format.sh
