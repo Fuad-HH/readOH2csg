@@ -21,10 +21,10 @@ find_package(PkgConfig REQUIRED)
 find_package(Omega_h REQUIRED)
 pkg_check_modules(netcdf-cxx4 REQUIRED IMPORTED_TARGET netcdf-cxx4)
 
-add_executable(readOH readOH.cc)
+add_executable(readOH src/readOH.cc)
 target_link_libraries(readOH PRIVATE Omega_h::omega_h PkgConfig::netcdf-cxx4)
 
-add_executable(get_adj_info get_adj_info.cc)
+add_executable(get_adj_info src/get_adj_info.cc)
 target_link_libraries(get_adj_info PRIVATE Omega_h::omega_h
                                            PkgConfig::netcdf-cxx4)
 
