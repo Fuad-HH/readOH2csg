@@ -201,9 +201,10 @@ int main(int argc, char **argv) {
                    .count()
             << "ms\n";
   // write out the coefficients to a file
-  //for (Omega_h::LO i = 0; i < mesh.nedges(); ++i) {
+  // for (Omega_h::LO i = 0; i < mesh.nedges(); ++i) {
   //  edge_coeffs_file << i << " " << edge_coeffs_view(i, 0) << " "
-  //                   << edge_coeffs_view(i, 1) << " " << edge_coeffs_view(i, 2)
+  //                   << edge_coeffs_view(i, 1) << " " << edge_coeffs_view(i,
+  //                   2)
   //                   << " " << edge_coeffs_view(i, 3) << " "
   //                   << edge_coeffs_view(i, 4) << "\n";
   //}
@@ -305,10 +306,12 @@ int main(int argc, char **argv) {
                    .count()
             << "ms\n";
   // write out the face to edge map to a file
-  //for (Omega_h::LO i = 0; i < mesh.nfaces(); ++i) {
+  // for (Omega_h::LO i = 0; i < mesh.nfaces(); ++i) {
   //  face2edgemap_file << i << " " << face2edgemap(i, 0) << " "
-  //                    << face2edgemap(i, 1) << " " << face2edgemap(i, 2) << " "
-  //                    << face2edgemap(i, 3) << " " << face2edgemap(i, 4) << " "
+  //                    << face2edgemap(i, 1) << " " << face2edgemap(i, 2) << "
+  //                    "
+  //                    << face2edgemap(i, 3) << " " << face2edgemap(i, 4) << "
+  //                    "
   //                    << face2edgemap(i, 5) << "\n";
   //}
   face2edgemap_file.close();
