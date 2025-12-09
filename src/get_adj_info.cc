@@ -23,14 +23,7 @@
 int main(int argc, char **argv) {
   Timers timers;
   Timer *main_timer = timers.add("Total");
-  Timer *setup_timer = timers.add("setup");
-
-  // calls MPI_init(&argc, &argv) and Kokkos::initialize(argc, argv)
-  auto lib = Omega_h::Library(&argc, &argv);
-  // encapsulates many MPI functions, e.g., world.barrier()
-  const auto world = lib.world();
-  // create a distributed mesh object, calls mesh.balance() and then returns it
-  Omega_h::Mesh mesh(&lib);
+  Timer *setup_timer = timers.add("Setup & load mesh");
 
   // read the mesh filename
   if (argc < 2) {
@@ -38,55 +31,41 @@ int main(int argc, char **argv) {
     return 1;
   }
   std::string mesh_filename = argv[1];
-  bool printflag = false;
+  bool print_flag = false;
   if (argc == 3) {
-    int print = std::stoi(argv[2]);
-    printflag = print;
+    print_flag = std::stoi(argv[2]);
   }
 
-  Omega_h::binary::read(mesh_filename, world, &mesh);
-  // ***************** Mesh reading is done ***************** //
-
-  // ******** Get the boundary entities ******** //
-  std::vector<int> bdrs;
-
+  auto lib = Omega_h::Library(&argc, &argv);
+  Omega_h::Mesh mesh(&lib);
+  Omega_h::binary::read(mesh_filename, lib.world(), &mesh);
   setup_timer->stop();
 
-  Timer *boundary_timer = timers.add("boundary extraction");
-  auto exposed_sides = Omega_h::mark_exposed_sides(&mesh);
-  for (Omega_h::LO i = 0; i < exposed_sides.size(); ++i) {
-    if (exposed_sides[i]) {
-      bdrs.push_back(int(i));
-    }
-  }
-
+  Timer *boundary_timer = timers.add("Find boundary edges");
+  Omega_h::LOs boundary_edge_ids = get_boundary_edge_ids(mesh);
   boundary_timer->stop();
 
-  Timer *mesh_query_timer = timers.add("mesh query");
-  // *********** Read all the edges of the mesh *********** //
-  // kokkos view to store nedges * 3 doubles : m^2, 2c, -c^2
-  auto edge_coeffs_view =
-      Kokkos::View<double *[6]>("edge_coeffs", mesh.nedges());
-
-  // get the adjacency for the edges
-  auto edge2vert = mesh.get_adj(1, 0);
-  auto edgeOffsets = edge2vert.a2ab;
+  Timer *mesh_adj_read_timer = timers.add("Read mesh adjacency");
+  auto edge2vert = mesh.get_adj(Omega_h::EDGE, Omega_h::VERT);
   auto edgeVertices = edge2vert.ab2b;
+  mesh_adj_read_timer->stop();
 
-  std::ofstream edge_coeffs_file;
-  edge_coeffs_file.open("edge_coeffs.dat");
+  Timer *edge_query_timer = timers.add("Calculate edge coefficients");
+  // Kokkos view to store nedges by 6 doubles :
+  // m^2, tba, 2c, -c^2, top-bottom, m
+  auto edge_coefficients_v =
+      Kokkos::View<double *[6]>("edge_coefficients_view", mesh.nedges());
 
-  mesh_query_timer->stop();
-
-  Timer *edge_query_timer = timers.add("edge query");
   // * Step 1: loop over all edges and print the associated vertices
-  const auto create_edge_coeffs = OMEGA_H_LAMBDA(Omega_h::LO i) {
-    auto vert1 = edgeVertices[2 * i];
-    auto vert2 = edgeVertices[2 * i + 1];
-    auto v1coords = Omega_h::get_vector<2>(mesh.coords(), vert1);
-    auto v2coords = Omega_h::get_vector<2>(mesh.coords(), vert2);
+  const auto create_edge_coefficients = OMEGA_H_LAMBDA(const Omega_h::LO i) {
+    const int vert1 = edgeVertices[2 * i];
+    const int vert2 = edgeVertices[2 * i + 1];
+    const Omega_h::Vector<2> v1coords =
+        Omega_h::get_vector<2>(mesh.coords(), vert1);
+    const Omega_h::Vector<2> v2coords =
+        Omega_h::get_vector<2>(mesh.coords(), vert2);
 
-    if (printflag) {
+    if (print_flag) {
       // print the coordinates of the vertices
       std::cout << "Edge " << i << " connects vertices " << v1coords[0] << " "
                 << v1coords[1] << " and " << v2coords[0] << " " << v2coords[1]
@@ -94,96 +73,97 @@ int main(int argc, char **argv) {
     }
 
     // coefficient vector of doubles of size 3
-    std::vector<double> edge_coeffs(5, 0.0);
+    Omega_h::Vector<6> edge_coefficients;
 
     if (std::abs(v1coords[0] - v2coords[0]) < 1e-10) {
       // cylinder surface: x^2 + y^2 - r^2 = 0
-      edge_coeffs = {1.0, 0.0, 0.0, -v1coords[0] * v1coords[0], 0, 1.0};
+      edge_coefficients = {1.0, 0.0, 0.0, -v1coords[0] * v1coords[0], 0, 1.0};
     } else if (std::abs(v1coords[1] - v2coords[1]) < 1e-10) {
       // z plane: z-z0 = 0
-      edge_coeffs = {0.0, 0.0, 1.0, -v1coords[1], 0, 0};
+      edge_coefficients = {0.0, 0.0, 1.0, -v1coords[1], 0, 0};
     } else {
       // compute the coefficients of the line passing through vert1 and vert2
-      edge_coeffs = compute_coefficients(v1coords, v2coords);
+      edge_coefficients = compute_coefficients(v1coords, v2coords);
     }
 
-    // store the coefficients in the edge_coeffs view
-    edge_coeffs_view(i, 0) = edge_coeffs[0];
-    edge_coeffs_view(i, 1) = edge_coeffs[1];
-    edge_coeffs_view(i, 2) = edge_coeffs[2];
-    edge_coeffs_view(i, 3) = edge_coeffs[3];
-    edge_coeffs_view(i, 4) = edge_coeffs[4];
-    edge_coeffs_view(i, 5) = edge_coeffs[5];
+    // store the coefficients view
+    edge_coefficients_v(i, 0) = edge_coefficients[0];
+    edge_coefficients_v(i, 1) = edge_coefficients[1];
+    edge_coefficients_v(i, 2) = edge_coefficients[2];
+    edge_coefficients_v(i, 3) = edge_coefficients[3];
+    edge_coefficients_v(i, 4) = edge_coefficients[4];
+    edge_coefficients_v(i, 5) = edge_coefficients[5];
 
-    if (printflag) {
+    if (print_flag) {
       // print the coefficients of the edge
-      std::cout << "Edge " << i << " has coefficients: " << edge_coeffs[0]
-                << " " << edge_coeffs[1] << " " << edge_coeffs[2] << " "
-                << edge_coeffs[3] << " Top Bottom: " << edge_coeffs[4] << "\n";
+      std::cout << "Edge " << i << " has coefficients: " << edge_coefficients[0]
+                << " " << edge_coefficients[1] << " " << edge_coefficients[2]
+                << " " << edge_coefficients[3]
+                << " Top Bottom: " << edge_coefficients[4] << "\n";
     }
   };
   // loop over all edges
-  Omega_h::parallel_for(mesh.nedges(), create_edge_coeffs);
-
+  Omega_h::parallel_for(mesh.nedges(), create_edge_coefficients);
   edge_query_timer->stop();
-  Timer *edge_file_write_timer = timers.add("edge file write");
-  // write out the coefficients to a file
-  // for (Omega_h::LO i = 0; i < mesh.nedges(); ++i) {
-  //  edge_coeffs_file << i << " " << edge_coeffs_view(i, 0) << " "
-  //                   << edge_coeffs_view(i, 1) << " " << edge_coeffs_view(i,
-  //                   2)
-  //                   << " " << edge_coeffs_view(i, 3) << " "
-  //                   << edge_coeffs_view(i, 4) << "\n";
-  //}
-  // the last line contains all the boundary edges
-  edge_coeffs_file << "Boundary edges: " << bdrs.size() << "\n";
-  for (Omega_h::LO i = 0; i < bdrs.size(); ++i) {
-    edge_coeffs_file << bdrs[i] << " ";
-  }
-  edge_coeffs_file.close();
 
+  Timer *edge_file_write_timer = timers.add("edge file write");
+  std::ofstream edge_coefficient_file;
+  edge_coefficient_file.open("edge-coefficients.dat");
+
+  auto coefficinets_host = Kokkos::create_mirror_view(edge_coefficients_v);
+  Kokkos::deep_copy(coefficinets_host, edge_coefficients_v);
+  for (Omega_h::LO i = 0; i < mesh.nedges(); ++i) {
+    edge_coefficient_file << i << " " << coefficinets_host(i, 0) << " "
+                          << coefficinets_host(i, 1) << " "
+                          << coefficinets_host(i, 2) << " "
+                          << coefficinets_host(i, 3) << " "
+                          << coefficinets_host(i, 4) << "\n";
+  }
+  // the last line contains all the boundary edges
+  auto bdrs_host = Omega_h::HostRead<Omega_h::LO>(boundary_edge_ids);
+  edge_coefficient_file << "Boundary edges: " << bdrs_host.size() << "\n";
+  for (int bdr : bdrs_host) {
+    edge_coefficient_file << bdr << " ";
+  }
+  edge_coefficient_file.close();
   edge_file_write_timer->stop();
 
-  Timer *face_query_timer = timers.add("face query");
-  std::ofstream face2edgemap_file;
-  face2edgemap_file.open("face2edgemap.dat");
-  // ********** Reading the Edge done ********** //
-  auto face2vert = mesh.ask_down(2, 0);
-  auto face2vertVerts = face2vert.ab2b;
+  Timer *face_calc_timer = timers.add("Determine face-edge connectivity");
+  const auto face2vert = mesh.ask_down(Omega_h::FACE, Omega_h::VERT);
+  const auto face2vertVertices = face2vert.ab2b;
 
-  // * Step 2: loop over all faces
-  auto face2edge = mesh.get_adj(2, 1);
-  // auto face2edgeOffsets = face2edge.a2ab;
+  auto face2edge = mesh.get_adj(Omega_h::FACE, Omega_h::EDGE);
   auto face2edgeEdges = face2edge.ab2b;
 
   // a kokkos view to store the face to edge map
-  auto face2edgemap = Kokkos::View<int *[6]>("face2edgemap", mesh.nfaces());
+  // each face has 3 edges, each edge has an in_or_out flag
+  auto face2edge_connectivity =
+      Kokkos::View<int *[6]>("face2edgemap", mesh.nfaces());
 
-  face_query_timer->stop();
+  const auto create_face2edge_map = OMEGA_H_LAMBDA(const Omega_h::LO i) {
+    const int edge1 = face2edgeEdges[3 * i];
+    const int edge2 = face2edgeEdges[3 * i + 1];
+    const int edge3 = face2edgeEdges[3 * i + 2];
 
-  Timer *face_calc_timer = timers.add("face calculation");
-  // for (Omega_h::LO i = 0; i < mesh.nfaces(); ++i) {
-  const auto create_face2edgemap = OMEGA_H_LAMBDA(Omega_h::LO i) {
-    auto edge1 = face2edgeEdges[3 * i];
-    auto edge2 = face2edgeEdges[3 * i + 1];
-    auto edge3 = face2edgeEdges[3 * i + 2];
-
-    if (printflag) {
+    if (print_flag) {
       // print the edges of the face
       std::cout << "Face " << i << " has edges " << edge1 << " " << edge2 << " "
                 << edge3 << "\n";
     }
 
     // extract the vertices of the face
-    auto vert1 = face2vertVerts[3 * i];
-    auto vert2 = face2vertVerts[3 * i + 1];
-    auto vert3 = face2vertVerts[3 * i + 2];
+    const int vert1 = face2vertVertices[3 * i];
+    const int vert2 = face2vertVertices[3 * i + 1];
+    const int vert3 = face2vertVertices[3 * i + 2];
 
-    auto v1coords = Omega_h::get_vector<2>(mesh.coords(), vert1);
-    auto v2coords = Omega_h::get_vector<2>(mesh.coords(), vert2);
-    auto v3coords = Omega_h::get_vector<2>(mesh.coords(), vert3);
+    const Omega_h::Vector<2> v1coords =
+        Omega_h::get_vector<2>(mesh.coords(), vert1);
+    const Omega_h::Vector<2> v2coords =
+        Omega_h::get_vector<2>(mesh.coords(), vert2);
+    const Omega_h::Vector<2> v3coords =
+        Omega_h::get_vector<2>(mesh.coords(), vert3);
 
-    if (printflag) {
+    if (print_flag) {
       // print the vertices of the face
       std::cout << "Face " << i << " has vertices " << v1coords[0] << " "
                 << v1coords[1] << ", " << v2coords[0] << " " << v2coords[1]
@@ -191,46 +171,49 @@ int main(int argc, char **argv) {
     }
 
     // each edge of a face has a flag associated with it
-    int inoroutflag1 =
-        inoroutWline(v1coords, v2coords, v3coords,
-                     {edge_coeffs_view(edge1, 0), edge_coeffs_view(edge1, 1),
-                      edge_coeffs_view(edge1, 2), edge_coeffs_view(edge1, 3),
-                      edge_coeffs_view(edge1, 4), edge_coeffs_view(edge1, 5)});
-    int inoroutflag2 =
-        inoroutWline(v1coords, v2coords, v3coords,
-                     {edge_coeffs_view(edge2, 0), edge_coeffs_view(edge2, 1),
-                      edge_coeffs_view(edge2, 2), edge_coeffs_view(edge2, 3),
-                      edge_coeffs_view(edge2, 4), edge_coeffs_view(edge2, 5)});
-    int inoroutflag3 =
-        inoroutWline(v1coords, v2coords, v3coords,
-                     {edge_coeffs_view(edge3, 0), edge_coeffs_view(edge3, 1),
-                      edge_coeffs_view(edge3, 2), edge_coeffs_view(edge3, 3),
-                      edge_coeffs_view(edge3, 4), edge_coeffs_view(edge3, 5)});
+    const int in_or_out_1 = inoroutWline(
+        v1coords, v2coords, v3coords,
+        {edge_coefficients_v(edge1, 0), edge_coefficients_v(edge1, 1),
+         edge_coefficients_v(edge1, 2), edge_coefficients_v(edge1, 3),
+         edge_coefficients_v(edge1, 4), edge_coefficients_v(edge1, 5)});
+    const int in_or_out_2 = inoroutWline(
+        v1coords, v2coords, v3coords,
+        {edge_coefficients_v(edge2, 0), edge_coefficients_v(edge2, 1),
+         edge_coefficients_v(edge2, 2), edge_coefficients_v(edge2, 3),
+         edge_coefficients_v(edge2, 4), edge_coefficients_v(edge2, 5)});
+    const int in_or_out_3 = inoroutWline(
+        v1coords, v2coords, v3coords,
+        {edge_coefficients_v(edge3, 0), edge_coefficients_v(edge3, 1),
+         edge_coefficients_v(edge3, 2), edge_coefficients_v(edge3, 3),
+         edge_coefficients_v(edge3, 4), edge_coefficients_v(edge3, 5)});
 
-    // store the edges and inorout flags in the face2edgemap view
-    face2edgemap(i, 0) = edge1;
-    face2edgemap(i, 1) = inoroutflag1;
-    face2edgemap(i, 2) = edge2;
-    face2edgemap(i, 3) = inoroutflag2;
-    face2edgemap(i, 4) = edge3;
-    face2edgemap(i, 5) = inoroutflag3;
+    face2edge_connectivity(i, 0) = edge1;
+    face2edge_connectivity(i, 1) = in_or_out_1;
+    face2edge_connectivity(i, 2) = edge2;
+    face2edge_connectivity(i, 3) = in_or_out_2;
+    face2edge_connectivity(i, 4) = edge3;
+    face2edge_connectivity(i, 5) = in_or_out_3;
   };
-
-  // loop over all faces
-  Omega_h::parallel_for(mesh.nfaces(), create_face2edgemap);
-
+  Omega_h::parallel_for(mesh.nfaces(), create_face2edge_map);
   face_calc_timer->stop();
-  // write out the face to edge map to a file
-  // for (Omega_h::LO i = 0; i < mesh.nfaces(); ++i) {
-  //  face2edgemap_file << i << " " << face2edgemap(i, 0) << " "
-  //                    << face2edgemap(i, 1) << " " << face2edgemap(i, 2) << "
-  //                    "
-  //                    << face2edgemap(i, 3) << " " << face2edgemap(i, 4) << "
-  //                    "
-  //                    << face2edgemap(i, 5) << "\n";
-  //}
-  face2edgemap_file.close();
 
+  Timer *face_file_write_timer = timers.add("Connectivity file write");
+  std::ofstream face2edge_connectivity_file;
+  face2edge_connectivity_file.open("face-edge-connectivity.dat");
+
+  auto connectivity_host = Kokkos::create_mirror_view(face2edge_connectivity);
+  Kokkos::deep_copy(connectivity_host, face2edge_connectivity);
+  for (Omega_h::LO i = 0; i < mesh.nfaces(); ++i) {
+    face2edge_connectivity_file
+        << i << " " << connectivity_host(i, 0) << " " << connectivity_host(i, 1)
+        << " " << connectivity_host(i, 2) << " " << connectivity_host(i, 3)
+        << " " << connectivity_host(i, 4) << " " << connectivity_host(i, 5)
+        << "\n";
+  }
+  face2edge_connectivity_file.close();
+  face_file_write_timer->stop();
+
+  /*
   // *********** Write to netcdf file *********** //
   // ******************************************** //
   // create a netcdf file
@@ -375,7 +358,7 @@ int main(int argc, char **argv) {
           break;
         }
       }
-    } else /* 0 if only one face*/ {
+    } else { // 0 if only one face
       edge2face_data[i][3] = 0;
     }
   }
@@ -490,6 +473,7 @@ int main(int argc, char **argv) {
   ncFile.close();
 
   nc_file_write_timer->stop();
+ */
   main_timer->stop();
 
   timers.print();

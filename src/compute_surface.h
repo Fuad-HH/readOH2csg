@@ -10,6 +10,8 @@
 
 #include <Omega_h_mesh.hpp>
 
+[[nodiscard]] Omega_h::LOs get_boundary_edge_ids(Omega_h::Mesh &mesh);
+
 /**
  * The equation of the line is:
  *     y = mx + c
@@ -32,8 +34,8 @@
  * this by checking if x1 = x2. If it is, then use `ZCylinder` instead of
  * `Quadratic` for the face.
  */
-std::vector<double> compute_coefficients(Omega_h::Few<double, 2> &vert1,
-                                         Omega_h::Few<double, 2> &vert2);
+Omega_h::Vector<6> compute_coefficients(const Omega_h::Few<double, 2> &vert1,
+                                        const Omega_h::Few<double, 2> &vert2);
 /**
  * @brief Check weather to keep the inside or outside of the face
  * @details The 3 verts of the face and the edge coefficints are passed and

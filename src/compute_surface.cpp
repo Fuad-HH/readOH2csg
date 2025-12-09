@@ -4,7 +4,35 @@
 
 #include "compute_surface.h"
 
+#include <Omega_h_array_ops.hpp>
 #include <Omega_h_mark.hpp>
+
+[[nodiscard]] Omega_h::LOs get_boundary_edge_ids(Omega_h::Mesh &mesh) {
+  const Omega_h::Read<signed char> exposed_sides =
+      Omega_h::mark_exposed_sides(&mesh);
+  const int num_boundary_edges = Omega_h::get_sum(exposed_sides);
+
+  Omega_h::Write<Omega_h::LO> boundary_edge_ids(num_boundary_edges, -1,
+                                                "boundary_edge_ids");
+  Omega_h::LO highest_marked_index = 0;
+  Kokkos::parallel_scan(
+      mesh.nedges(),
+      OMEGA_H_LAMBDA(const Omega_h::LO i, Omega_h::LO &partial_sum,
+                     const bool final) {
+        const Omega_h::LO offset = partial_sum;
+
+        if (exposed_sides[i]) {
+          partial_sum++;
+        }
+
+        if (final && exposed_sides[i]) {
+          boundary_edge_ids[offset] = i;
+        }
+      },
+      highest_marked_index);
+
+  return boundary_edge_ids;
+}
 
 int get_closest_node_to_vertical_axis(const Omega_h::Mesh &mesh) {
   // get the coordinates of the vertices
@@ -27,13 +55,16 @@ int get_closest_node_to_vertical_axis(const Omega_h::Mesh &mesh) {
   return closest_node;
 }
 
-std::vector<double> compute_coefficients(Omega_h::Few<double, 2> &vert1,
-                                         Omega_h::Few<double, 2> &vert2) {
-  // compute the coefficients of the line passing through vert1 and vert2
-  double m = (vert2[1] - vert1[1]) / (vert2[0] - vert1[0]);
-  double c = vert1[1] - (m * vert1[0]);
-  double c2 = c * c;
+Omega_h::Vector<6> compute_coefficients(const Omega_h::Few<double, 2> &vert1,
+                                        const Omega_h::Few<double, 2> &vert2) {
+  // compute the coefficients of the line passing through
+  // vert1 (x1,z1) and vert2 (x2,z2)
+  // z = m*x + c; m : slope, c: z-intercept
+  const double m = (vert2[1] - vert1[1]) / (vert2[0] - vert1[0]);
+  const double c = vert1[1] - (m * vert1[0]);
+  const double c2 = c * c;
   // if z > c, topbottomflag = 1, else -1
+  // corresponds to openmc's ZConeOneSided up parameter
   double topbottomflag = (vert1[1] > c) ? 1 : -1;
   return {m * m, -1, 2 * c, -c2, topbottomflag, m};
 }
