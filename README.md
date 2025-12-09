@@ -35,3 +35,6 @@ cmake --build build
 > If the netCDF libraries are installed as package configs,
 > you may need to set `PKG_CONFIG_PATH` if they are not set by
 > the package manager or module system.
+
+## Documentation
+More details on strategies, logic, and math are included in the `doc/` directory.
