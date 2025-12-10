@@ -9,6 +9,7 @@
 #include <vector>
 
 #include <Omega_h_bbox.hpp>
+#include <Omega_h_cmdline.hpp>
 #include <Omega_h_file.hpp>
 #include <Omega_h_for.hpp>
 #include <Omega_h_mark.hpp>
@@ -16,6 +17,9 @@
 
 #include "Timer.h"
 #include "compute_surface.h"
+
+void read_cli(int argc, char **argv, Omega_h::Library &lib, bool &print_flag,
+              Omega_h::filesystem::path &mesh_filename);
 
 /*!
  * \brief Read the mesh file and go to each vertex to get its coordinates
@@ -25,19 +29,13 @@ int main(int argc, char **argv) {
   Timer *main_timer = timers.add("Total");
   Timer *setup_timer = timers.add("Setup & load mesh");
 
-  // read the mesh filename
-  if (argc < 2) {
-    std::cerr << "Usage: " << argv[0] << " <mesh_filename> <printflag>=0\n";
-    return 1;
-  }
-  std::string mesh_filename = argv[1];
-  bool print_flag = false;
-  if (argc == 3) {
-    print_flag = std::stoi(argv[2]);
-  }
-
   auto lib = Omega_h::Library(&argc, &argv);
   Omega_h::Mesh mesh(&lib);
+
+  bool print_flag;
+  Omega_h::filesystem::path mesh_filename;
+  read_cli(argc, argv, lib, print_flag, mesh_filename);
+
   Omega_h::binary::read(mesh_filename, lib.world(), &mesh);
   setup_timer->stop();
 
@@ -479,3 +477,30 @@ int main(int argc, char **argv) {
   timers.print();
   return 0;
 } // main
+
+// The lib needs to be passed as reference otherwise it cannot read the mesh
+void read_cli(int argc, char **argv, Omega_h::Library &lib, bool &print_flag,
+              Omega_h::filesystem::path &mesh_filename) {
+  Omega_h::CmdLine cmdline;
+  auto &mesh_flag = cmdline.add_flag("--mesh", "Input mesh (.osh) file path");
+  mesh_flag.add_arg<std::string>("mesh_filename");
+  cmdline.add_flag("--print", "Print details");
+  if (!cmdline.parse_final(lib.world(), &argc, argv)) {
+    throw std::runtime_error("Error in command line parsing");
+  }
+  if (!cmdline.parsed("--mesh")) {
+    cmdline.show_help(argv);
+    throw std::runtime_error("Error parsing command line arguments");
+  }
+  if (!cmdline.parsed("--print")) {
+    print_flag = false;
+  } else {
+    print_flag = true;
+  }
+  mesh_filename = cmdline.get<std::string>("--mesh", "mesh_filename");
+  if (!exists(mesh_filename)) {
+    const std::string msg =
+        "Mesh file " + mesh_filename.string() + " not found";
+    throw std::runtime_error(msg);
+  }
+}
