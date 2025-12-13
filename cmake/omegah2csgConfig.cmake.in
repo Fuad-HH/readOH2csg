@@ -1,0 +1,12 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+
+find_dependency(Omega_h CONFIG HINTS @Omega_h_DIR@)
+find_dependency(Kokkos CONFIG HINTS @Kokkos_DIR@)
+
+# add pkgconfig hint with netcdf-cxx dependency
+
+include("${CMAKE_CURRENT_LIST_DIR}/omegah2csg-targets.cmake")
+
+check_required_components(omegah2csg)
