@@ -10,7 +10,6 @@ _dll = CDLL(str(_filename))
 
 
 from .config import *
-kokkos_runtime.kokkos_initialize()
 #user need to call finalize
 
 from .OmegaHMesh import *

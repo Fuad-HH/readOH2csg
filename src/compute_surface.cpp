@@ -6,6 +6,63 @@
 
 #include <Omega_h_array_ops.hpp>
 #include <Omega_h_mark.hpp>
+#include <Omega_h_for.hpp>
+
+void compute_edge_coefficients(Omega_h::Mesh& mesh, Kokkos::View<double *[6]> edge_coefficients_v, const bool print_flag)
+{
+  assert(edge_coefficients_v.extent(0) == mesh.nedges());
+
+  const auto edgeVertices = mesh.ask_down(Omega_h::EDGE, Omega_h::VERT).ab2b;
+
+  // * Step 1: loop over all edges and print the associated vertices
+  const auto create_edge_coefficients = OMEGA_H_LAMBDA(const Omega_h::LO i) {
+    const int vert1 = edgeVertices[2 * i];
+    const int vert2 = edgeVertices[2 * i + 1];
+    const Omega_h::Vector<2> v1coords =
+        Omega_h::get_vector<2>(mesh.coords(), vert1);
+    const Omega_h::Vector<2> v2coords =
+        Omega_h::get_vector<2>(mesh.coords(), vert2);
+
+    if (print_flag) {
+      // print the coordinates of the vertices
+      std::cout << "Edge " << i << " connects vertices " << v1coords[0] << " "
+          << v1coords[1] << " and " << v2coords[0] << " " << v2coords[1]
+          << "\n";
+    }
+
+    // coefficient vector of doubles of size 3
+    Omega_h::Vector<6> edge_coefficients;
+
+    if (std::abs(v1coords[0] - v2coords[0]) < 1e-10) {
+      // cylinder surface: x^2 + y^2 - r^2 = 0
+      edge_coefficients = {1.0, 0.0, 0.0, -v1coords[0] * v1coords[0], 0, 1.0};
+    } else if (std::abs(v1coords[1] - v2coords[1]) < 1e-10) {
+      // z plane: z-z0 = 0
+      edge_coefficients = {0.0, 0.0, 1.0, -v1coords[1], 0, 0};
+    } else {
+      // compute the coefficients of the line passing through vert1 and vert2
+      edge_coefficients = compute_coefficients(v1coords, v2coords);
+    }
+
+    // store the coefficients view
+    edge_coefficients_v(i, 0) = edge_coefficients[0];
+    edge_coefficients_v(i, 1) = edge_coefficients[1];
+    edge_coefficients_v(i, 2) = edge_coefficients[2];
+    edge_coefficients_v(i, 3) = edge_coefficients[3];
+    edge_coefficients_v(i, 4) = edge_coefficients[4];
+    edge_coefficients_v(i, 5) = edge_coefficients[5];
+
+    if (print_flag) {
+      // print the coefficients of the edge
+      std::cout << "Edge " << i << " has coefficients: " << edge_coefficients[0]
+          << " " << edge_coefficients[1] << " " << edge_coefficients[2]
+          << " " << edge_coefficients[3]
+          << " Top Bottom: " << edge_coefficients[4] << "\n";
+    }
+  };
+  // loop over all edges
+  Omega_h::parallel_for(mesh.nedges(), create_edge_coefficients);
+}
 
 [[nodiscard]] Omega_h::LOs get_boundary_edge_ids(Omega_h::Mesh &mesh) {
   const Omega_h::Read<signed char> exposed_sides =

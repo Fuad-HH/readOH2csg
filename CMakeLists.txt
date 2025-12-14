@@ -69,7 +69,7 @@ if(omegah2csg_ENABLE_PYTHON)
     POST_BUILD
     COMMAND
       ${CMAKE_COMMAND} -E copy $<TARGET_FILE:omegah2csg>
-      ${CMAKE_CURRENT_SOURCE_DIR}/OmegaH2CSG/lib/$<TARGET_FILE_NAME:omegah2csg>
+      ${CMAKE_CURRENT_SOURCE_DIR}/pythonAPI/omegah2csg/lib/$<TARGET_FILE_NAME:omegah2csg>
     COMMENT "Copying omegah2csg library to Python package directory")
 endif()
 

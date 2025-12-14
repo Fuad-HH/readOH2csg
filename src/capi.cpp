@@ -6,6 +6,7 @@
  */
 
 #include "capi.h"
+#include "compute_surface.h"
 
 #include <Omega_h_file.hpp>
 #include <Omega_h_library.hpp>
@@ -74,6 +75,32 @@ extern "C" void kokkos_finalize() {
   if (Kokkos::is_initialized()) {
     if (!Kokkos::is_finalized()) {
       Kokkos::Tools::finalize();
+    }
+  }
+}
+
+extern "C" void capi_compute_edge_coefficients(OmegaHMesh oh_mesh, int size,
+                                               double coefficients[],
+                                               const bool print_debug) {
+  auto mesh = static_cast<Omega_h::Mesh *>(oh_mesh.pointer);
+  const auto n_edges = mesh->nedges();
+  auto edge_coefficients_view = Kokkos::View<double *[6]>(
+      "edge_coefficients_view", n_edges);
+
+  compute_edge_coefficients(*mesh, edge_coefficients_view, print_debug);
+  auto host_edge_coefficients_view = Kokkos::create_mirror_view(
+      edge_coefficients_view);
+  Kokkos::deep_copy(host_edge_coefficients_view, edge_coefficients_view);
+
+  if (size != host_edge_coefficients_view.size()) {
+    throw std::runtime_error(
+        "Error: size of coefficients array does not match number of edges * 6");
+  }
+
+  // TODO Use the pointer as host copy
+  for (int edge = 0; edge < host_edge_coefficients_view.extent(0); ++edge) {
+    for (int i = 0; i < 6; ++i) {
+      coefficients[edge * 6 + i] = host_edge_coefficients_view(edge, i);
     }
   }
 }

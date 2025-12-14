@@ -25,7 +25,7 @@ class KokkosRuntime:
             raise RuntimeWarning("Kokkos already initialized. Doing nothing.")
 
         _dll.kokkos_initialize()
-        _kokkos_initialized = True
+        self._kokkos_initialized = True
 
     def kokkos_finalize(self):
         """Call after all operations are performed."""
@@ -33,6 +33,9 @@ class KokkosRuntime:
             raise RuntimeWarning("Kokkos already finalized. Restart python to initialize kokkos again.")
 
         _dll.kokkos_finalize()
-        _kokkos_finalized = True
+        self._kokkos_finalized = True
+
+    def is_running(self):
+        return self._kokkos_initialized and (not self._kokkos_finalized)
 
 kokkos_runtime = KokkosRuntime()

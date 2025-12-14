@@ -16,7 +16,7 @@ check-format.sh
 # Python distribution
 .settings/
 dist/
-OmegaH2CSG.egg-info/
+pythonAPI/*.egg-info*/
 
 # Inputs generated from Python API
 *.xml

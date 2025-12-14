@@ -1,13 +1,11 @@
 include CMakeLists.txt
 include LICENSE
 include pyproject.toml
-include pytest.ini
+include pytest.toml
 global-include *.cmake
 global-include *.cmake.in
 recursive-include src *.cc
 recursive-include src *.cpp
 recursive-include src *.h
-recursive-include src *.hh
-recursive-include src *.hpp
-recursive-include tests *.dat
 recursive-include tests *.py
+recursive-include tests *.osh

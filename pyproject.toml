@@ -1,15 +1,15 @@
 [build-system]
-requires = ["setuptools >= 77.0.3", "setuptools-scm", "wheel"]
+requires = ["setuptools >= 77.0.3", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "OmegaH2CSG"
+name = "omegah2csg"
 authors = [
     { name="Fuad Hasan", email="fuadhhasan.for@gmail.com" },
 ]
 description = "Convert Omega_h mesh files generated using TOMMS for TOKAMAKs to CSG format for OpenMC and Degas2."
 readme = "README.md"
-dynamic = ["version"]
+version = "0.0.1"
 requires-python = ">=3.11"
 classifiers = [
     "Intended Audience :: Developers",
@@ -33,18 +33,18 @@ dependencies = [
 test = [
     "pytest",
 ]
-vtk = ["vtk"]
 
 [project.urls]
 Homepage = "https://github.com/Fuad-HH/readOH2csg"
 Issues = "https://github.com/Fuad-HH/readOH2csg/issues"
 
 [tool.setuptools.packages.find]
-include = ['OmegaH2CSG*']
-exclude = ['tests*']
+where = ["pythonAPI"]
+include = ["omegah2csg*"]
+exclude = ["tests*"]
+namespaces = false
+
 
 [tool.setuptools.package-data]
-"osh2csg.data" = ["*.txt", "*.dat"]
-"osh2csg.lib" = ["*.so"]
-
-[tool.setuptools_scm]
+"omegah2csg.data" = ["*.txt", "*.dat", "*.osh"]
+"omegah2csg.lib" = ["libomegah2csg.so"]
