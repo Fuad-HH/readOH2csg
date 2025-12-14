@@ -28,7 +28,10 @@ endif()
 
 find_package(PkgConfig REQUIRED)
 find_package(Omega_h REQUIRED)
-find_package(Kokkos REQUIRED)
+
+if(NOT Omega_h_USE_Kokkos)
+    message(FATAL_ERROR "Omega_h must be built with Kokkos support enabled.")
+endif()
 
 pkg_check_modules(netcdf-cxx4 REQUIRED IMPORTED_TARGET netcdf-cxx4)
 
@@ -54,7 +57,7 @@ target_include_directories(
 target_link_libraries(
   omegah2csg
   PUBLIC Omega_h::omega_h PkgConfig::netcdf-cxx4
-  PRIVATE Kokkos::kokkos)
+)
 
 add_executable(readOH src/readOH.cc)
 target_link_libraries(readOH PRIVATE Omega_h::omega_h PkgConfig::netcdf-cxx4)

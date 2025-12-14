@@ -1,0 +1,109 @@
+name: CI
+
+on:
+  # allows us to run workflows manually
+  workflow_dispatch:
+
+  pull_request:
+    branches:
+      - parallel
+  push:
+    branches:
+      - parallel
+
+jobs:
+  main:
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        build_type: ["Release", "Debug"]
+        python-version: ["3.11", "3.12", "3.13"]
+
+    name: "Python ${{ matrix.python-version }} - ${{ matrix.build_type }}"
+
+    steps:
+      - name: Setup cmake
+        uses: jwlawson/actions-setup-cmake@v2
+        with:
+          cmake-version: '3.31'
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Apt dependencies
+        shell: bash
+        run: |
+          sudo apt -y update
+          sudo apt install -y gcc g++ libnetcdf-c++4-dev pkg-config
+
+      - name: build Catch2
+        uses: ./.github/actions/install-repo
+        with:
+          repo-name: 'Catch2'
+          repo-path: 'catchorg/Catch2'
+          repo-ref: 'v3.11.0'
+          cache: true
+          options: ''
+
+      - name: build kokkos
+        uses: ./.github/actions/install-repo
+        with:
+          repo-name: 'kokkos'
+          repo-path: 'kokkos/kokkos'
+          repo-ref: '4.6.01'
+          cache: true
+          options: '-DCMAKE_CXX_STANDARD=17
+                    -DBUILD_SHARED_LIBS=ON
+                    -DKokkos_ENABLE_SERIAL=ON
+                    -DKokkos_ENABLE_OPENMP=ON
+                    -DKokkos_ENABLE_CUDA=OFF
+                    -DKokkos_ENABLE_CUDA_LAMBDA=OFF
+                    -DKokkos_ENABLE_CUDA_CONSTEXPR=OFF'
+
+      - name: build omega_h
+        uses: ./.github/actions/install-repo
+        with:
+          repo-name: 'omega_h'
+          repo-path: 'SCOREC/omega_h'
+          repo-ref: 'master'
+          cache: true
+          options: '-DCMAKE_CXX_COMPILER=`which g++`
+                    -DCMAKE_C_COMPILER=`which gcc`
+                    -DBUILD_SHARED_LIBS=ON
+                    -DOmega_h_USE_MPI=OFF
+                    -DOmega_h_USE_Kokkos=ON
+                    -DBUILD_TESTING=OFF
+                    -DKokkos_ROOT=${{ runner.temp }}/build-kokkos/install'
+
+      - name: build omegah2csg
+        uses: ./.github/actions/install-repo
+        with:
+          repo-name: 'readOH2csg'
+          repo-path: 'fuad-hh/readOH2csg'
+          repo-ref: 'parallel'
+          cache: false
+          options: '-DCMAKE_CXX_COMPILER=`which g++`
+                    -DCMAKE_C_COMPILER=`which gcc`
+                    -DOmega_h_ROOT=${{ runner.temp }}/build-omega_h/install/
+                    -DKokkos_ROOT=${{ runner.temp }}/build-kokkos/install/'
+
+      - name: Install OpenMC from wheels
+        shell: bash
+        run: |
+          python -m pip install --extra-index-url https://shimwell.github.io/wheels openmc
+          pip install .[test]
+
+      - name: Run python tests
+        shell: bash
+        run: |
+          export OMP_NUM_PLACES=threads
+          export OMP_PROC_BIND=spread
+          export OMP_NUM_THREADS=2
+          pytest -vv -s
