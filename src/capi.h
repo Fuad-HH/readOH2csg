@@ -37,7 +37,8 @@ int get_dim(OmegaHMesh mesh);
 void kokkos_initialize();
 void kokkos_finalize();
 
-void capi_compute_edge_coefficients(OmegaHMesh oh_mesh, int size, double coefficients[], bool print_debug);
+void capi_compute_edge_coefficients(OmegaHMesh oh_mesh, int size,
+                                    double coefficients[], bool print_debug);
 
 #ifdef __cplusplus
 }

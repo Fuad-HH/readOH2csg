@@ -16,7 +16,9 @@
  * @param print_flag Print flag for debugging
  * @param edge_coefficients_v Output edge coefficients of size (num_edges, 6)
  */
-void compute_edge_coefficients(Omega_h::Mesh& mesh, Kokkos::View<double *[6]> edge_coefficients_v, bool print_flag = false);
+void compute_edge_coefficients(Omega_h::Mesh &mesh,
+                               Kokkos::View<double *[6]> edge_coefficients_v,
+                               bool print_flag = false);
 
 [[nodiscard]] Omega_h::LOs get_boundary_edge_ids(Omega_h::Mesh &mesh);
 

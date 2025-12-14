@@ -84,12 +84,12 @@ extern "C" void capi_compute_edge_coefficients(OmegaHMesh oh_mesh, int size,
                                                const bool print_debug) {
   auto mesh = static_cast<Omega_h::Mesh *>(oh_mesh.pointer);
   const auto n_edges = mesh->nedges();
-  auto edge_coefficients_view = Kokkos::View<double *[6]>(
-      "edge_coefficients_view", n_edges);
+  auto edge_coefficients_view =
+      Kokkos::View<double *[6]>("edge_coefficients_view", n_edges);
 
   compute_edge_coefficients(*mesh, edge_coefficients_view, print_debug);
-  auto host_edge_coefficients_view = Kokkos::create_mirror_view(
-      edge_coefficients_view);
+  auto host_edge_coefficients_view =
+      Kokkos::create_mirror_view(edge_coefficients_view);
   Kokkos::deep_copy(host_edge_coefficients_view, edge_coefficients_view);
 
   if (size != host_edge_coefficients_view.size()) {

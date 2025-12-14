@@ -5,11 +5,12 @@
 #include "compute_surface.h"
 
 #include <Omega_h_array_ops.hpp>
-#include <Omega_h_mark.hpp>
 #include <Omega_h_for.hpp>
+#include <Omega_h_mark.hpp>
 
-void compute_edge_coefficients(Omega_h::Mesh& mesh, Kokkos::View<double *[6]> edge_coefficients_v, const bool print_flag)
-{
+void compute_edge_coefficients(Omega_h::Mesh &mesh,
+                               Kokkos::View<double *[6]> edge_coefficients_v,
+                               const bool print_flag) {
   assert(edge_coefficients_v.extent(0) == mesh.nedges());
 
   const auto edgeVertices = mesh.ask_down(Omega_h::EDGE, Omega_h::VERT).ab2b;
@@ -26,8 +27,8 @@ void compute_edge_coefficients(Omega_h::Mesh& mesh, Kokkos::View<double *[6]> ed
     if (print_flag) {
       // print the coordinates of the vertices
       std::cout << "Edge " << i << " connects vertices " << v1coords[0] << " "
-          << v1coords[1] << " and " << v2coords[0] << " " << v2coords[1]
-          << "\n";
+                << v1coords[1] << " and " << v2coords[0] << " " << v2coords[1]
+                << "\n";
     }
 
     // coefficient vector of doubles of size 3
@@ -55,9 +56,9 @@ void compute_edge_coefficients(Omega_h::Mesh& mesh, Kokkos::View<double *[6]> ed
     if (print_flag) {
       // print the coefficients of the edge
       std::cout << "Edge " << i << " has coefficients: " << edge_coefficients[0]
-          << " " << edge_coefficients[1] << " " << edge_coefficients[2]
-          << " " << edge_coefficients[3]
-          << " Top Bottom: " << edge_coefficients[4] << "\n";
+                << " " << edge_coefficients[1] << " " << edge_coefficients[2]
+                << " " << edge_coefficients[3]
+                << " Top Bottom: " << edge_coefficients[4] << "\n";
     }
   };
   // loop over all edges
