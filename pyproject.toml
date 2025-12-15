@@ -46,5 +46,4 @@ namespaces = false
 
 
 [tool.setuptools.package-data]
-"omegah2csg.data" = ["*.txt", "*.dat", "*.osh"]
-"omegah2csg.lib" = ["libomegah2csg.so"]
+"omegah2csg" = ["*.txt", "*.dat", "*.osh", "*.so"]
