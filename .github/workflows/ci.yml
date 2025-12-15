@@ -95,7 +95,7 @@ jobs:
                 -DOmega_h_ROOT=${{ runner.temp }}/build-omega_h/install/ \
                 -DKokkos_ROOT=${{ runner.temp }}/build-kokkos/install/
           
-          cmake --build build-omegah2csg --target install
+          cmake --build build-omegah2csg
 
       - name: Show Python package lib copy
         run: |
