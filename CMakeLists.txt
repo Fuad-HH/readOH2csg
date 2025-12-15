@@ -69,9 +69,9 @@ if(omegah2csg_ENABLE_PYTHON)
     POST_BUILD
     COMMAND
       ${CMAKE_COMMAND} -E copy $<TARGET_FILE:omegah2csg>
-      ${CMAKE_CURRENT_SOURCE_DIR}/pythonAPI/omegah2csg/lib/$<TARGET_FILE_NAME:omegah2csg>
+      ${PROJECT_SOURCE_DIR}/pythonAPI/omegah2csg/lib/$<TARGET_FILE_NAME:omegah2csg>
     COMMENT
-      "Copying $<TARGET_FILE:omegah2csg> to ${CMAKE_CURRENT_SOURCE_DIR}/pythonAPI/omegah2csg/lib/$<TARGET_FILE_NAME:omegah2csg>"
+      "Copying $<TARGET_FILE:omegah2csg> to ${PROJECT_SOURCE_DIR}/pythonAPI/omegah2csg/lib/$<TARGET_FILE_NAME:omegah2csg>"
   )
 endif()
 

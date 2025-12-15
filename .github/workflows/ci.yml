@@ -97,6 +97,7 @@ jobs:
       - name: Show Python package lib copy
         run: |
           cd ${GITHUB_WORKSPACE}
+          realpath ./ || true
           ls -la pythonAPI/omegah2csg/lib || true
 
       - name: Install OpenMC from wheels
