@@ -104,12 +104,14 @@ jobs:
       - name: Install omegah2csg package
         shell: bash
         run: |
+          cd ${GITHUB_WORKSPACE}
           python -m build
           pip install .[test]
 
       - name: Run python tests
         shell: bash
         run: |
+          cd ${GITHUB_WORKSPACE}
           export OMP_NUM_PLACES=threads
           export OMP_PROC_BIND=spread
           export OMP_NUM_THREADS=2
