@@ -15,30 +15,28 @@
 
 extern "C" OmegaHLibrary create_omegah_library() {
   const auto lib = new Omega_h::Library();
-  return static_cast<OmegaHLibrary>(lib);
+  return {reinterpret_cast<void *>(lib)};
 }
 
 extern "C" void destroy_omegah_library(OmegaHLibrary lib) {
-  const auto library = static_cast<Omega_h::Library *>(lib.pointer);
-  delete library;
+  delete reinterpret_cast<Omega_h::Library *>(lib.pointer);
 }
 
 extern "C" OmegaHMesh create_omegah_mesh(OmegaHLibrary lib,
                                          const char *filename) {
   assert(lib.pointer != nullptr);
-  auto *library = static_cast<Omega_h::Library *>(lib.pointer);
+  auto *library = reinterpret_cast<Omega_h::Library *>(lib.pointer);
   const auto mesh = new Omega_h::Mesh(library);
   Omega_h::binary::read(filename, library->world(), mesh);
-  return static_cast<OmegaHMesh>(mesh);
+  return {reinterpret_cast<void *>(mesh)};
 }
 
 extern "C" void destroy_omegah_mesh(OmegaHMesh mesh) {
-  const auto omega_h_mesh = static_cast<Omega_h::Mesh *>(mesh.pointer);
-  delete omega_h_mesh;
+  delete reinterpret_cast<Omega_h::Mesh *>(mesh.pointer);
 }
 
 extern "C" void print_mesh_info(OmegaHMesh mesh) {
-  const auto omega_h_mesh = static_cast<Omega_h::Mesh *>(mesh.pointer);
+  const auto omega_h_mesh = reinterpret_cast<Omega_h::Mesh *>(mesh.pointer);
   // Print some basic information about the mesh
   // Number of vertices, edges, faces, and elements
   const int num_vertices = omega_h_mesh->nverts();
@@ -55,13 +53,13 @@ extern "C" void print_mesh_info(OmegaHMesh mesh) {
 
 extern "C" int get_num_entities(OmegaHMesh mesh, int dim) {
   assert(mesh.pointer != nullptr);
-  const auto omega_h_mesh = static_cast<Omega_h::Mesh *>(mesh.pointer);
+  const auto omega_h_mesh = reinterpret_cast<Omega_h::Mesh *>(mesh.pointer);
   return omega_h_mesh->nents(dim);
 }
 
 extern "C" int get_dim(OmegaHMesh mesh) {
   assert(mesh.pointer != nullptr);
-  const auto omega_h_mesh = static_cast<Omega_h::Mesh *>(mesh.pointer);
+  const auto omega_h_mesh = reinterpret_cast<Omega_h::Mesh *>(mesh.pointer);
   return omega_h_mesh->dim();
 }
 
@@ -82,7 +80,7 @@ extern "C" void kokkos_finalize() {
 extern "C" void capi_compute_edge_coefficients(OmegaHMesh oh_mesh, int size,
                                                double coefficients[],
                                                const bool print_debug) {
-  auto mesh = static_cast<Omega_h::Mesh *>(oh_mesh.pointer);
+  auto mesh = reinterpret_cast<Omega_h::Mesh *>(oh_mesh.pointer);
   const auto n_edges = mesh->nedges();
   auto edge_coefficients_view =
       Kokkos::View<double *[6]>("edge_coefficients_view", n_edges);

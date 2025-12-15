@@ -30,7 +30,7 @@ find_package(PkgConfig REQUIRED)
 find_package(Omega_h REQUIRED)
 
 if(NOT Omega_h_USE_Kokkos)
-    message(FATAL_ERROR "Omega_h must be built with Kokkos support enabled.")
+  message(FATAL_ERROR "Omega_h must be built with Kokkos support enabled.")
 endif()
 
 pkg_check_modules(netcdf-cxx4 REQUIRED IMPORTED_TARGET netcdf-cxx4)
@@ -54,10 +54,7 @@ add_library(omegah2csg ${omegah2csg_SOURCES})
 target_include_directories(
   omegah2csg PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
                     $<INSTALL_INTERFACE:include>)
-target_link_libraries(
-  omegah2csg
-  PUBLIC Omega_h::omega_h PkgConfig::netcdf-cxx4
-)
+target_link_libraries(omegah2csg PUBLIC Omega_h::omega_h PkgConfig::netcdf-cxx4)
 
 add_executable(readOH src/readOH.cc)
 target_link_libraries(readOH PRIVATE Omega_h::omega_h PkgConfig::netcdf-cxx4)
