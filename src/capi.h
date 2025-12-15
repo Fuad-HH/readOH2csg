@@ -48,6 +48,11 @@ void capi_get_face_connectivity(OmegaHMesh oh_mesh, int edge_size,
                                 double edge_coefficients[], int face_size,
                                 int face_connectivity[], bool print_debug);
 
+void capi_get_all_geometry_info(OmegaHMesh oh_mesh, int n_edges, int n_faces,
+                                double edge_coefficients[],
+                                int boundary_edges[], int face_connectivity[],
+                                bool print_debug);
+
 #ifdef __cplusplus
 }
 #endif

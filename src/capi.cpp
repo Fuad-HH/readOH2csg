@@ -16,6 +16,60 @@
 
 #include <cassert>
 
+extern "C" void
+capi_get_all_geometry_info(OmegaHMesh oh_mesh, int n_edges, int n_faces,
+                           double edge_coefficients[], int boundary_edges[],
+                           int face_connectivity[], bool print_debug) {
+  auto mesh = reinterpret_cast<Omega_h::Mesh *>(oh_mesh.pointer);
+  if (n_edges != mesh->nedges()) {
+    throw std::runtime_error("Error: size of edge_coefficients array does not "
+                             "match number of edges.");
+  }
+  if (n_faces != mesh->nfaces()) {
+    throw std::runtime_error("Error: size of face_connectivity array does not "
+                             "match number of faces.");
+  }
+
+  // compute edge coefficients
+  auto edge_coefficients_view =
+      Kokkos::View<double *[6]>("edge_coefficients", mesh->nedges());
+  compute_edge_coefficients(*mesh, edge_coefficients_view, print_debug);
+
+  // get boundary edge ids
+  Omega_h::LOs boundary_edge_ids = get_boundary_edge_ids(*mesh);
+
+  // compute face connectivity
+  Kokkos::View<int *[6]> face_connectivity_view =
+      calculate_face_connectivity(*mesh, edge_coefficients_view, print_debug);
+
+  // copy edge coefficients to output array
+  auto host_edge_coefficients =
+      Kokkos::create_mirror_view(edge_coefficients_view);
+  Kokkos::deep_copy(host_edge_coefficients, edge_coefficients_view);
+  for (int edge = 0; edge < mesh->nedges(); ++edge) {
+    for (int i = 0; i < 6; ++i) {
+      edge_coefficients[edge * 6 + i] = host_edge_coefficients(edge, i);
+    }
+  }
+
+  // copy boundary edge ids to output array
+  auto host_boundary_edge_ids =
+      Omega_h::HostRead<Omega_h::LO>(boundary_edge_ids);
+  for (int i = 0; i < boundary_edge_ids.size(); ++i) {
+    boundary_edges[i] = host_boundary_edge_ids[i];
+  }
+
+  // copy face connectivity to output array
+  auto host_face_connectivity =
+      Kokkos::create_mirror_view(face_connectivity_view);
+  Kokkos::deep_copy(host_face_connectivity, face_connectivity_view);
+  for (int face = 0; face < mesh->nfaces(); ++face) {
+    for (int i = 0; i < 6; ++i) {
+      face_connectivity[face * 6 + i] = host_face_connectivity(face, i);
+    }
+  }
+}
+
 extern "C" void capi_get_face_connectivity(OmegaHMesh oh_mesh, int edge_size,
                                            double edge_coefficients[],
                                            int face_size,
