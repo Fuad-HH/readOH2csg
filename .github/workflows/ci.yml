@@ -50,7 +50,7 @@ jobs:
           repo-path: 'catchorg/Catch2'
           repo-ref: 'v3.11.0'
           cache: true
-          options: ''
+          options: '-DBUILD_SHARED_LIBS=ON'
 
       - name: build kokkos
         uses: ./.github/actions/install-repo
