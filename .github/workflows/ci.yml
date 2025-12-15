@@ -98,6 +98,13 @@ jobs:
         shell: bash
         run: |
           python -m pip install --extra-index-url https://shimwell.github.io/wheels openmc
+          python -m pip install pytest
+          python -m pip install --upgrade build
+
+      - name: Install omegah2csg package
+        shell: bash
+        run: |
+          python -m build
           pip install .[test]
 
       - name: Run python tests
