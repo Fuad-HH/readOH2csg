@@ -3,8 +3,11 @@ import openmc
 import pandas as pd
 from omegah2csg import OmegaHMesh
 from omegah2csg import get_edge_coefficients
+from omegah2csg import get_boundary_edge_ids
+
 
 from pathlib import Path
+
 
 
 def test_edge_and_face_coefficients():
@@ -12,6 +15,7 @@ def test_edge_and_face_coefficients():
 
     with OmegaHMesh(parent_directory / f'assets/6elem.osh') as mesh:
         edge_coefficients = get_edge_coefficients(mesh)
+        boundary_edge_ids = get_boundary_edge_ids(mesh)
         assert mesh.num_entities(1) == 13
         print(pd.DataFrame(edge_coefficients))
 
@@ -37,4 +41,5 @@ def test_edge_and_face_coefficients():
 
     assert edge_coefficients.shape[0] == 13
     assert edge_coefficients.shape[1] == 6
+    assert boundary_edge_ids.shape[0] == 8
 

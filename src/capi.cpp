@@ -8,10 +8,35 @@
 #include "capi.h"
 #include "compute_surface.h"
 
+#include <Omega_h_array_ops.hpp>
 #include <Omega_h_file.hpp>
 #include <Omega_h_library.hpp>
+#include <Omega_h_mark.hpp>
 #include <Omega_h_mesh.hpp>
+
 #include <cassert>
+
+extern "C" int capi_get_number_of_boundary_edges(OmegaHMesh oh_mesh) {
+  auto mesh = reinterpret_cast<Omega_h::Mesh *>(oh_mesh.pointer);
+  const auto exposed_side_marks = Omega_h::mark_exposed_sides(mesh);
+  int num_boundary_edges = Omega_h::get_sum(exposed_side_marks);
+
+  return num_boundary_edges;
+}
+
+extern "C" void capi_get_boundary_edge_ids(OmegaHMesh oh_mesh, const int size,
+                                           int edge_ids[]) {
+  auto mesh = reinterpret_cast<Omega_h::Mesh *>(oh_mesh.pointer);
+  const auto exposed_sides = get_boundary_edge_ids(*mesh);
+  if (size != exposed_sides.size()) {
+    throw std::runtime_error("Error: size of edge_ids array does not match "
+                             "number of boundary edges");
+  }
+  const auto host_exposed_sides = Omega_h::HostRead<Omega_h::LO>(exposed_sides);
+  for (int i = 0; i < exposed_sides.size(); ++i) {
+    edge_ids[i] = host_exposed_sides[i];
+  }
+}
 
 extern "C" OmegaHLibrary create_omegah_library() {
   const auto lib = new Omega_h::Library();

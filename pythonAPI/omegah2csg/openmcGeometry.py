@@ -16,6 +16,12 @@ from . import _dll, kokkos_runtime
 _dll.capi_compute_edge_coefficients.restype = None
 _dll.capi_compute_edge_coefficients.argtypes = [OmegaHMeshPointer, c_int, ndpointer(c_double), c_bool]
 
+_dll.capi_get_boundary_edge_ids.restype = None
+_dll.capi_get_boundary_edge_ids.argtypes = [OmegaHMeshPointer, c_int, ndpointer(c_int)]
+
+_dll.capi_get_number_of_boundary_edges.restype = c_int
+_dll.capi_get_number_of_boundary_edges.argtypes = [OmegaHMeshPointer]
+
 def get_edge_coefficients(mesh: OmegaHMesh, print_debug=False):
     if not kokkos_runtime.is_running():
         raise RuntimeError("Kokkos not running...")
@@ -31,4 +37,30 @@ def get_edge_coefficients(mesh: OmegaHMesh, print_debug=False):
         raise RuntimeError(f"Error computing edge coefficients: {exception}")
 
     return coefficients.reshape(num_edges, 6)
+
+def get_num_of_boundary_edges(mesh: OmegaHMesh) -> int :
+    if not kokkos_runtime.is_running():
+        raise RuntimeError("Kokkos not running...")
+
+    try:
+        return _dll.capi_get_number_of_boundary_edges(mesh.mesh)
+
+    except Exception as exception:
+        raise RuntimeError(f"Error computing number of boundary edges: {exception}")
+
+def get_boundary_edge_ids(mesh: OmegaHMesh, size=0):
+    if not kokkos_runtime.is_running():
+        raise RuntimeError("Kokkos not running...")
+
+    if size == 0:
+        size = get_num_of_boundary_edges(mesh)
+
+    boundary_edge_ids = np.zeros(size, dtype=np.int32)
+    try:
+        _dll.capi_get_boundary_edge_ids(mesh.mesh, size, boundary_edge_ids)
+    except Exception as exception:
+        raise RuntimeError(f"Error computing boundary edge ids: {exception}")
+
+    return boundary_edge_ids
+
 

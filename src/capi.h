@@ -6,6 +6,7 @@
 #ifndef OMEGAH2CSG_CAPI_H
 #define OMEGAH2CSG_CAPI_H
 
+#include <Omega_h_adj.hpp>
 #include <stdbool.h>
 
 #ifdef __cplusplus
@@ -39,6 +40,9 @@ void kokkos_finalize();
 
 void capi_compute_edge_coefficients(OmegaHMesh oh_mesh, int size,
                                     double coefficients[], bool print_debug);
+
+int capi_get_number_of_boundary_edges(OmegaHMesh oh_mesh);
+void capi_get_boundary_edge_ids(OmegaHMesh oh_mesh, int size, int edge_ids[]);
 
 #ifdef __cplusplus
 }
