@@ -16,6 +16,54 @@
 
 #include <cassert>
 
+extern "C" void capi_get_face_connectivity(OmegaHMesh oh_mesh, int edge_size,
+                                           double edge_coefficients[],
+                                           int face_size,
+                                           int face_connectivity[],
+                                           bool print_debug) {
+
+  auto mesh = reinterpret_cast<Omega_h::Mesh *>(oh_mesh.pointer);
+  const auto n_faces = mesh->nfaces();
+  const auto n_edges = mesh->nedges();
+  // copy edge coefficients to Kokkos view
+  if (edge_size != mesh->nedges() * 6) {
+    throw std::runtime_error(
+        "Error: size of edge_coefficients array does not match number of edges "
+        "* 6");
+  }
+  if (face_size != mesh->nfaces() * 6) {
+    throw std::runtime_error(
+        "Error: size of face_connectivity array does not match number of faces "
+        "* 6");
+  }
+
+  Kokkos::View<double *[6], Kokkos::DefaultExecutionSpace>
+      edge_coefficients_view("edge_coefficients_view", mesh->nedges());
+  auto host_edge_efficients =
+      Kokkos::create_mirror_view(edge_coefficients_view);
+
+  // TODO remove this by using unmanaged view
+  for (int edge = 0; edge < n_edges; ++edge) {
+    for (int i = 0; i < 6; ++i) {
+      host_edge_efficients(edge, i) = edge_coefficients[edge * 6 + i];
+    }
+  }
+  Kokkos::deep_copy(edge_coefficients_view, host_edge_efficients);
+
+  auto connectivity =
+      calculate_face_connectivity(*mesh, edge_coefficients_view, print_debug);
+
+  auto host_connectivity = Kokkos::create_mirror_view(connectivity);
+  Kokkos::deep_copy(host_connectivity, connectivity);
+
+  // copy to output array
+  for (int face = 0; face < n_faces; ++face) {
+    for (int i = 0; i < 6; ++i) {
+      face_connectivity[face * 6 + i] = host_connectivity(face, i);
+    }
+  }
+}
+
 extern "C" int capi_get_number_of_boundary_edges(OmegaHMesh oh_mesh) {
   auto mesh = reinterpret_cast<Omega_h::Mesh *>(oh_mesh.pointer);
   const auto exposed_side_marks = Omega_h::mark_exposed_sides(mesh);

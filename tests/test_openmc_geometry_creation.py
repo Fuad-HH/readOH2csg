@@ -4,9 +4,10 @@ import pandas as pd
 from omegah2csg import OmegaHMesh
 from omegah2csg import get_edge_coefficients
 from omegah2csg import get_boundary_edge_ids
-
+from omegah2csg import get_face_connectivity
 
 from pathlib import Path
+
 
 
 
@@ -16,8 +17,16 @@ def test_edge_and_face_coefficients():
     with OmegaHMesh(parent_directory / f'assets/6elem.osh') as mesh:
         edge_coefficients = get_edge_coefficients(mesh)
         boundary_edge_ids = get_boundary_edge_ids(mesh)
-        assert mesh.num_entities(1) == 13
+        n_faces = mesh.num_entities(2)
+        n_edges = mesh.num_entities(1)
+
+        print("\n\nEdge coefficients:")
         print(pd.DataFrame(edge_coefficients))
+
+        print("\n\nFace connectivity:")
+        face_connectivity_edge_given = get_face_connectivity(mesh, edge_coefficients)
+        print(pd.DataFrame(face_connectivity_edge_given))
+        face_connectivity_edge_not_given = get_face_connectivity(mesh)
 
     top_bottom_flag = edge_coefficients[:, 5]
     edges = []
@@ -40,6 +49,21 @@ def test_edge_and_face_coefficients():
                                                     up=True if top_bottom_flag[i] == 1 else False))
 
     assert edge_coefficients.shape[0] == 13
+    assert n_edges == 13
     assert edge_coefficients.shape[1] == 6
     assert boundary_edge_ids.shape[0] == 8
+
+    print(f"\n\nBoundary edge ids: {boundary_edge_ids}")
+
+    # assert that both face connectivities are the same
+    assert face_connectivity_edge_given.shape[0] == n_faces
+    assert face_connectivity_edge_given.shape[1] == 6
+
+    assert face_connectivity_edge_given.shape[0] == face_connectivity_edge_not_given.shape[0]
+    assert face_connectivity_edge_given.shape[1] == face_connectivity_edge_not_given.shape[1]
+
+    for i in range (face_connectivity_edge_given.shape[0]):
+        for j in range(face_connectivity_edge_given.shape[1]):
+            assert face_connectivity_edge_given[i, j] == face_connectivity_edge_not_given[i, j]
+
 

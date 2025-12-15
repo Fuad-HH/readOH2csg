@@ -75,72 +75,8 @@ int main(int argc, char **argv) {
   edge_file_write_timer->stop();
 
   Timer *face_calc_timer = timers.add("Determine face-edge connectivity");
-  const auto face2vert = mesh.ask_down(Omega_h::FACE, Omega_h::VERT);
-  const auto face2vertVertices = face2vert.ab2b;
-
-  auto face2edge = mesh.get_adj(Omega_h::FACE, Omega_h::EDGE);
-  auto face2edgeEdges = face2edge.ab2b;
-
-  // a kokkos view to store the face to edge map
-  // each face has 3 edges, each edge has an in_or_out flag
-  auto face2edge_connectivity =
-      Kokkos::View<int *[6]>("face2edgemap", mesh.nfaces());
-
-  const auto create_face2edge_map = OMEGA_H_LAMBDA(const Omega_h::LO i) {
-    const int edge1 = face2edgeEdges[3 * i];
-    const int edge2 = face2edgeEdges[3 * i + 1];
-    const int edge3 = face2edgeEdges[3 * i + 2];
-
-    if (print_flag) {
-      // print the edges of the face
-      std::cout << "Face " << i << " has edges " << edge1 << " " << edge2 << " "
-                << edge3 << "\n";
-    }
-
-    // extract the vertices of the face
-    const int vert1 = face2vertVertices[3 * i];
-    const int vert2 = face2vertVertices[3 * i + 1];
-    const int vert3 = face2vertVertices[3 * i + 2];
-
-    const Omega_h::Vector<2> v1coords =
-        Omega_h::get_vector<2>(mesh.coords(), vert1);
-    const Omega_h::Vector<2> v2coords =
-        Omega_h::get_vector<2>(mesh.coords(), vert2);
-    const Omega_h::Vector<2> v3coords =
-        Omega_h::get_vector<2>(mesh.coords(), vert3);
-
-    if (print_flag) {
-      // print the vertices of the face
-      std::cout << "Face " << i << " has vertices " << v1coords[0] << " "
-                << v1coords[1] << ", " << v2coords[0] << " " << v2coords[1]
-                << ", " << v3coords[0] << " " << v3coords[1] << "\n";
-    }
-
-    // each edge of a face has a flag associated with it
-    const int in_or_out_1 = inoroutWline(
-        v1coords, v2coords, v3coords,
-        {edge_coefficients_v(edge1, 0), edge_coefficients_v(edge1, 1),
-         edge_coefficients_v(edge1, 2), edge_coefficients_v(edge1, 3),
-         edge_coefficients_v(edge1, 4), edge_coefficients_v(edge1, 5)});
-    const int in_or_out_2 = inoroutWline(
-        v1coords, v2coords, v3coords,
-        {edge_coefficients_v(edge2, 0), edge_coefficients_v(edge2, 1),
-         edge_coefficients_v(edge2, 2), edge_coefficients_v(edge2, 3),
-         edge_coefficients_v(edge2, 4), edge_coefficients_v(edge2, 5)});
-    const int in_or_out_3 = inoroutWline(
-        v1coords, v2coords, v3coords,
-        {edge_coefficients_v(edge3, 0), edge_coefficients_v(edge3, 1),
-         edge_coefficients_v(edge3, 2), edge_coefficients_v(edge3, 3),
-         edge_coefficients_v(edge3, 4), edge_coefficients_v(edge3, 5)});
-
-    face2edge_connectivity(i, 0) = edge1;
-    face2edge_connectivity(i, 1) = in_or_out_1;
-    face2edge_connectivity(i, 2) = edge2;
-    face2edge_connectivity(i, 3) = in_or_out_2;
-    face2edge_connectivity(i, 4) = edge3;
-    face2edge_connectivity(i, 5) = in_or_out_3;
-  };
-  Omega_h::parallel_for(mesh.nfaces(), create_face2edge_map);
+  Kokkos::View<int *[6]> face2edge_connectivity =
+      calculate_face_connectivity(mesh, edge_coefficients_v, print_flag);
   face_calc_timer->stop();
 
   Timer *face_file_write_timer = timers.add("Connectivity file write");

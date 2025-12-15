@@ -10,6 +10,11 @@
 
 #include <Omega_h_mesh.hpp>
 
+Kokkos::View<int *[6]>
+calculate_face_connectivity(Omega_h::Mesh mesh,
+                            Kokkos::View<double *[6]> edge_coefficients_v,
+                            bool print_flag = false);
+
 /**
  *
  * @param mesh Input mesh

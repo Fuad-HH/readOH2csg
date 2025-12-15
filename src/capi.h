@@ -44,6 +44,10 @@ void capi_compute_edge_coefficients(OmegaHMesh oh_mesh, int size,
 int capi_get_number_of_boundary_edges(OmegaHMesh oh_mesh);
 void capi_get_boundary_edge_ids(OmegaHMesh oh_mesh, int size, int edge_ids[]);
 
+void capi_get_face_connectivity(OmegaHMesh oh_mesh, int edge_size,
+                                double edge_coefficients[], int face_size,
+                                int face_connectivity[], bool print_debug);
+
 #ifdef __cplusplus
 }
 #endif
