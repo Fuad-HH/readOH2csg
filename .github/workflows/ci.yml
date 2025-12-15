@@ -83,16 +83,19 @@ jobs:
                     -DKokkos_ROOT=${{ runner.temp }}/build-kokkos/install'
 
       - name: build omegah2csg
-        uses: ./.github/actions/install-repo
-        with:
-          repo-name: 'readOH2csg'
-          repo-path: 'fuad-hh/readOH2csg'
-          repo-ref: 'parallel'
-          cache: false
-          options: '-DCMAKE_CXX_COMPILER=`which g++`
-                    -DCMAKE_C_COMPILER=`which gcc`
-                    -DOmega_h_ROOT=${{ runner.temp }}/build-omega_h/install/
-                    -DKokkos_ROOT=${{ runner.temp }}/build-kokkos/install/'
+        # install-repo method is not used to write .so to the correct location
+        shell: bash
+        run: |
+          cd ${GITHUB_WORKSPACE}
+          mkdir build-omegah2csg
+          cmake -S . -B build-omegah2csg \
+                -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+                -DCMAKE_CXX_COMPILER=`which g++` \
+                -DCMAKE_C_COMPILER=`which gcc` \
+                -DOmega_h_ROOT=${{ runner.temp }}/build-omega_h/install/ \
+                -DKokkos_ROOT=${{ runner.temp }}/build-kokkos/install/
+          
+          cmake --build build-omegah2csg --target install
 
       - name: Show Python package lib copy
         run: |
