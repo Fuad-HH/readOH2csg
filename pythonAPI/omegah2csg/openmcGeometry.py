@@ -205,45 +205,55 @@ def get_all_geometry_info(mesh: OmegaHMesh, print_debug=False):
 
     return edge_coefficients.reshape(n_edges, 6), boundary_edge_ids, face_connctivity.reshape(n_faces, 6)
 
-def create_openmc_geometry(mesh: OmegaHMesh, print_debug=False):
+def create_openmc_geometry(mesh: OmegaHMesh, materials=None, print_debug=False):
     if not kokkos_runtime.is_running():
         raise RuntimeError("Kokkos not running...")
 
     [edge_coefficients, boundary_edge_ids, face_connctivity] = get_all_geometry_info(mesh, print_debug)
+    n_edges = mesh.num_entities(1)
+    n_faces = mesh.num_entities(2)
 
-    top_bottom_flag = edge_coefficients[:, 5]
-    edges = []
-    intersections = edge_coefficients[:, 3]/2.0
-    m2 = edge_coefficients[:, 1]
-    z2 = edge_coefficients[:, 2]
-    neg_c = edge_coefficients[:, 4]
+    top_bottom_flag = edge_coefficients[:, 4]
+    edges = np.empty(shape=n_edges, dtype=object)
+    intersections = edge_coefficients[:, 2]/2.0
+    m2 = edge_coefficients[:, 0]
+    z2 = edge_coefficients[:, 1]
+    neg_c = edge_coefficients[:, 3]
 
     for i in range(len(intersections)):
 
-        if abs(m2[i]) < 1e-10:  # zplane
-            #print("Zplane - id ", int(data[i][0]))
-            edges.append(openmc.ZPlane(z0=-neg_c[i]))
-        elif abs(z2[i] + 1) > 1e-10:  # not a cone
-            #print("Quad - id ", int(data[i][0]))
-            edges.append(openmc.Quadric(a=m2[i], b=m2[i], c=z2[i], j=intersections[i], k=neg_c[i]))
-        else:  # cone
-            #print("Cone - id ", int(data[i][0]), " flag ", top_bottom_flag[i])
-            edges.append(openmc.model.ZConeOneSided(z0=intersections[i], r2=1.0 / abs(m2[i]),
-                                                    up=True if top_bottom_flag[i] == 1 else False))
+        if np.abs(m2[i]) < 1e-10:  # zplane
+            edges[i] = openmc.ZPlane(z0=-neg_c[i])
+        elif np.isclose(z2[i], 0.) and np.isclose(m2[i],1.):  # zcylinder
+            edges[i] = openmc.ZCylinder(r=np.sqrt(-neg_c[i]))
+        elif int(z2[i]) == -1: #cone
+            edges[i] = openmc.model.ZConeOneSided(z0=intersections[i], r2=1.0 / abs(m2[i]),
+                                                    up=True if top_bottom_flag[i] == 1 else False)
+        else:
+            raise RuntimeError(f"Z2 value {z2[i]} not recognized. Coefficients: {edge_coefficients[i,:]}")
 
     # this is incorrect as the above is appending
     for edge_id in boundary_edge_ids:
         edges[edge_id].boundary_type = 'reflective'
 
-    fuel = openmc.Material(name='plasma')
 
-    cells = []
+    if materials is None:
+        # to stop openmc errors
+        dummy = openmc.Material(name='dummy')
+        dummy.add_nuclide('H1', 1.0)
+        dummy.set_density(units='g/cc', density=1.0)
+        materials = np.array([dummy]*n_faces)
+
+    assert materials.ndim == 1
+    assert materials.shape[0] == n_faces
+
+    cells = np.empty(shape=n_faces, dtype=object)
     for i in range(face_connctivity.shape[0]):
         vol1 = +edges[int(face_connctivity[i][0])] if int(face_connctivity[i][1]) == 1 else -edges[int(face_connctivity[i][0])]
         vol2 = +edges[int(face_connctivity[i][2])] if int(face_connctivity[i][3]) == 1 else -edges[int(face_connctivity[i][2])]
         vol3 = +edges[int(face_connctivity[i][4])] if int(face_connctivity[i][5]) == 1 else -edges[int(face_connctivity[i][4])]
 
-        cells.append(openmc.Cell(region=vol1 & vol2 & vol3, fill=fuel, name='cell' + str(i), cell_id=i))
+        cells[i] = openmc.Cell(region=vol1 & vol2 & vol3, fill=materials[i], name='cell' + str(i), cell_id=i)
 
     universe = openmc.Universe(cells=cells)
     return universe
