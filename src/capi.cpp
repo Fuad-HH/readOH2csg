@@ -16,10 +16,12 @@
 
 #include <cassert>
 
-extern "C" void
-capi_get_all_geometry_info(OmegaHMesh oh_mesh, int n_edges, int n_faces,
-                           double edge_coefficients[], int boundary_edges[],
-                           int face_connectivity[], bool print_debug) {
+extern "C" void capi_get_all_geometry_info(OmegaHMesh oh_mesh, int n_edges,
+                                           int n_faces,
+                                           double edge_coefficients[],
+                                           int boundary_edges[],
+                                           int face_connectivity[],
+                                           bool print_debug, const double tol) {
   auto mesh = reinterpret_cast<Omega_h::Mesh *>(oh_mesh.pointer);
   if (n_edges != mesh->nedges()) {
     throw std::runtime_error("Error: size of edge_coefficients array does not "
@@ -33,14 +35,14 @@ capi_get_all_geometry_info(OmegaHMesh oh_mesh, int n_edges, int n_faces,
   // compute edge coefficients
   auto edge_coefficients_view =
       Kokkos::View<double *[6]>("edge_coefficients", mesh->nedges());
-  compute_edge_coefficients(*mesh, edge_coefficients_view, print_debug);
+  compute_edge_coefficients(*mesh, edge_coefficients_view, print_debug, tol);
 
   // get boundary edge ids
   Omega_h::LOs boundary_edge_ids = get_boundary_edge_ids(*mesh);
 
   // compute face connectivity
-  Kokkos::View<int *[6]> face_connectivity_view =
-      calculate_face_connectivity(*mesh, edge_coefficients_view, print_debug);
+  Kokkos::View<int *[6]> face_connectivity_view = calculate_face_connectivity(
+      *mesh, edge_coefficients_view, print_debug, tol);
 
   // copy edge coefficients to output array
   auto host_edge_coefficients =
@@ -74,7 +76,7 @@ extern "C" void capi_get_face_connectivity(OmegaHMesh oh_mesh, int edge_size,
                                            double edge_coefficients[],
                                            int face_size,
                                            int face_connectivity[],
-                                           bool print_debug) {
+                                           bool print_debug, const double tol) {
 
   auto mesh = reinterpret_cast<Omega_h::Mesh *>(oh_mesh.pointer);
   const auto n_faces = mesh->nfaces();
@@ -104,8 +106,8 @@ extern "C" void capi_get_face_connectivity(OmegaHMesh oh_mesh, int edge_size,
   }
   Kokkos::deep_copy(edge_coefficients_view, host_edge_efficients);
 
-  auto connectivity =
-      calculate_face_connectivity(*mesh, edge_coefficients_view, print_debug);
+  auto connectivity = calculate_face_connectivity(*mesh, edge_coefficients_view,
+                                                  print_debug, tol);
 
   auto host_connectivity = Kokkos::create_mirror_view(connectivity);
   Kokkos::deep_copy(host_connectivity, connectivity);
@@ -206,13 +208,14 @@ extern "C" void kokkos_finalize() {
 
 extern "C" void capi_compute_edge_coefficients(OmegaHMesh oh_mesh, int size,
                                                double coefficients[],
-                                               const bool print_debug) {
+                                               const bool print_debug,
+                                               const double tol) {
   auto mesh = reinterpret_cast<Omega_h::Mesh *>(oh_mesh.pointer);
   const auto n_edges = mesh->nedges();
   auto edge_coefficients_view =
       Kokkos::View<double *[6]>("edge_coefficients_view", n_edges);
 
-  compute_edge_coefficients(*mesh, edge_coefficients_view, print_debug);
+  compute_edge_coefficients(*mesh, edge_coefficients_view, print_debug, tol);
   auto host_edge_coefficients_view =
       Kokkos::create_mirror_view(edge_coefficients_view);
   Kokkos::deep_copy(host_edge_coefficients_view, edge_coefficients_view);

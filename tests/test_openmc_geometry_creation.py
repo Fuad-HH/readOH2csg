@@ -77,8 +77,9 @@ def test_create_openmc_universe():
         geom.export_to_xml()
 
 def test_edge_and_face_coefficients():
+    tol = 1e-10
     with OmegaHMesh(parent_directory / f'assets/6elem.osh') as mesh:
-        edge_coefficients = get_edge_coefficients(mesh)
+        edge_coefficients = get_edge_coefficients(mesh, tol=tol)
         boundary_edge_ids = get_boundary_edge_ids(mesh)
         n_faces = mesh.num_entities(2)
         n_edges = mesh.num_entities(1)
@@ -87,9 +88,9 @@ def test_edge_and_face_coefficients():
         print(pd.DataFrame(edge_coefficients))
 
         print("\n\nFace connectivity:")
-        face_connectivity_edge_given = get_face_connectivity(mesh, edge_coefficients)
+        face_connectivity_edge_given = get_face_connectivity(mesh, edge_coefficients, tol=tol)
         print(pd.DataFrame(face_connectivity_edge_given))
-        face_connectivity_edge_not_given = get_face_connectivity(mesh)
+        face_connectivity_edge_not_given = get_face_connectivity(mesh,tol=tol)
 
     top_bottom_flag = edge_coefficients[:, 5]
     edges = []

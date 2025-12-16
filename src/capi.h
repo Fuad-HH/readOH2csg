@@ -39,19 +39,21 @@ void kokkos_initialize();
 void kokkos_finalize();
 
 void capi_compute_edge_coefficients(OmegaHMesh oh_mesh, int size,
-                                    double coefficients[], bool print_debug);
+                                    double coefficients[], bool print_debug,
+                                    double tol = 1e-6);
 
 int capi_get_number_of_boundary_edges(OmegaHMesh oh_mesh);
 void capi_get_boundary_edge_ids(OmegaHMesh oh_mesh, int size, int edge_ids[]);
 
 void capi_get_face_connectivity(OmegaHMesh oh_mesh, int edge_size,
                                 double edge_coefficients[], int face_size,
-                                int face_connectivity[], bool print_debug);
+                                int face_connectivity[], bool print_debug,
+                                double tol = 1e-6);
 
 void capi_get_all_geometry_info(OmegaHMesh oh_mesh, int n_edges, int n_faces,
                                 double edge_coefficients[],
                                 int boundary_edges[], int face_connectivity[],
-                                bool print_debug);
+                                bool print_debug, double tol = 1e-6);
 
 #ifdef __cplusplus
 }

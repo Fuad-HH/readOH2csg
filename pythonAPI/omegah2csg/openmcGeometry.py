@@ -17,7 +17,7 @@ from ctypes import c_int, c_double, c_bool
 from . import _dll, kokkos_runtime
 
 _dll.capi_compute_edge_coefficients.restype = None
-_dll.capi_compute_edge_coefficients.argtypes = [OmegaHMeshPointer, c_int, ndpointer(c_double), c_bool]
+_dll.capi_compute_edge_coefficients.argtypes = [OmegaHMeshPointer, c_int, ndpointer(c_double), c_bool, c_double]
 
 _dll.capi_get_boundary_edge_ids.restype = None
 _dll.capi_get_boundary_edge_ids.argtypes = [OmegaHMeshPointer, c_int, ndpointer(c_int)]
@@ -26,10 +26,10 @@ _dll.capi_get_number_of_boundary_edges.restype = c_int
 _dll.capi_get_number_of_boundary_edges.argtypes = [OmegaHMeshPointer]
 
 _dll.capi_get_face_connectivity.restype = None
-_dll.capi_get_face_connectivity.argtypes = [OmegaHMeshPointer, c_int, ndpointer(c_double), c_int, ndpointer(c_int), c_bool]
+_dll.capi_get_face_connectivity.argtypes = [OmegaHMeshPointer, c_int, ndpointer(c_double), c_int, ndpointer(c_int), c_bool, c_double]
 
 _dll.capi_get_all_geometry_info.restype = None
-_dll.capi_get_all_geometry_info.argtypes = [OmegaHMeshPointer, c_int, c_int, ndpointer(c_double), ndpointer(c_int), ndpointer(c_int), c_bool]
+_dll.capi_get_all_geometry_info.argtypes = [OmegaHMeshPointer, c_int, c_int, ndpointer(c_double), ndpointer(c_int), ndpointer(c_int), c_bool, c_double]
 
 Coord = Tuple[float, float]
 
@@ -116,7 +116,7 @@ def create_openmc_surface(p1: Coord, p2: Coord, tol=1e-6):
 
 
 
-def get_edge_coefficients(mesh: OmegaHMesh, print_debug=False):
+def get_edge_coefficients(mesh: OmegaHMesh, print_debug=False, tol=1e-6):
     if not kokkos_runtime.is_running():
         raise RuntimeError("Kokkos not running...")
 
@@ -125,7 +125,7 @@ def get_edge_coefficients(mesh: OmegaHMesh, print_debug=False):
     size = coefficients.size
 
     try:
-        _dll.capi_compute_edge_coefficients(mesh.mesh, c_int(size), coefficients, print_debug)
+        _dll.capi_compute_edge_coefficients(mesh.mesh, c_int(size), coefficients, print_debug, tol)
 
     except Exception as exception:
         raise RuntimeError(f"Error computing edge coefficients: {exception}")
@@ -157,7 +157,7 @@ def get_boundary_edge_ids(mesh: OmegaHMesh, size=0):
 
     return boundary_edge_ids
 
-def get_face_connectivity(mesh: OmegaHMesh, edge_coefficients= None, print_debug=False):
+def get_face_connectivity(mesh: OmegaHMesh, edge_coefficients= None, print_debug=False, tol=1e-6):
     if not kokkos_runtime.is_running():
         raise RuntimeError("Kokkos not running...")
 
@@ -179,14 +179,14 @@ def get_face_connectivity(mesh: OmegaHMesh, edge_coefficients= None, print_debug
 
     # TODO add core-dump capture
     try:
-        _dll.capi_get_face_connectivity(mesh.mesh, n_edges * 6, edge_coefficients_shaped, n_faces*6, face_connectivity, print_debug)
+        _dll.capi_get_face_connectivity(mesh.mesh, n_edges * 6, edge_coefficients_shaped, n_faces*6, face_connectivity, print_debug, tol)
     except Exception as exception:
         raise RuntimeError(f"Error computing face connectivity: {exception}")
 
     return face_connectivity.reshape(n_faces, 6)
 
 
-def get_all_geometry_info(mesh: OmegaHMesh, print_debug=False):
+def get_all_geometry_info(mesh: OmegaHMesh, print_debug=False, tol=1e-6):
     if not kokkos_runtime.is_running():
         raise RuntimeError("Kokkos not running...")
 
@@ -199,17 +199,17 @@ def get_all_geometry_info(mesh: OmegaHMesh, print_debug=False):
     face_connctivity = np.zeros(n_faces * 6, dtype=np.int32)
 
     try:
-        _dll.capi_get_all_geometry_info(mesh.mesh, n_edges, n_faces, edge_coefficients, boundary_edge_ids, face_connctivity, print_debug)
+        _dll.capi_get_all_geometry_info(mesh.mesh, n_edges, n_faces, edge_coefficients, boundary_edge_ids, face_connctivity, print_debug, tol)
     except Exception as exception:
         raise RuntimeError(f"Error computing all geometry info: {exception}")
 
     return edge_coefficients.reshape(n_edges, 6), boundary_edge_ids, face_connctivity.reshape(n_faces, 6)
 
-def create_openmc_geometry(mesh: OmegaHMesh, materials=None, print_debug=False):
+def create_openmc_geometry(mesh: OmegaHMesh, materials=None, print_debug=False, tol=1e-6):
     if not kokkos_runtime.is_running():
         raise RuntimeError("Kokkos not running...")
 
-    [edge_coefficients, boundary_edge_ids, face_connctivity] = get_all_geometry_info(mesh, print_debug)
+    [edge_coefficients, boundary_edge_ids, face_connctivity] = get_all_geometry_info(mesh, print_debug, tol)
     n_edges = mesh.num_entities(1)
     n_faces = mesh.num_entities(2)
 

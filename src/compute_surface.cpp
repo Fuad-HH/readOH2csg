@@ -12,7 +12,7 @@
 Kokkos::View<int *[6]>
 calculate_face_connectivity(Omega_h::Mesh mesh,
                             Kokkos::View<double *[6]> edge_coefficients_v,
-                            bool print_flag) {
+                            bool print_flag, double tol) {
   const auto face2vert = mesh.ask_down(Omega_h::FACE, Omega_h::VERT);
   const auto face2vertVertices = face2vert.ab2b;
 
@@ -57,17 +57,20 @@ calculate_face_connectivity(Omega_h::Mesh mesh,
         v1coords, v2coords, v3coords,
         {edge_coefficients_v(edge1, 0), edge_coefficients_v(edge1, 1),
          edge_coefficients_v(edge1, 2), edge_coefficients_v(edge1, 3),
-         edge_coefficients_v(edge1, 4), edge_coefficients_v(edge1, 5)});
+         edge_coefficients_v(edge1, 4), edge_coefficients_v(edge1, 5)},
+        tol);
     const int in_or_out_2 = inoroutWline(
         v1coords, v2coords, v3coords,
         {edge_coefficients_v(edge2, 0), edge_coefficients_v(edge2, 1),
          edge_coefficients_v(edge2, 2), edge_coefficients_v(edge2, 3),
-         edge_coefficients_v(edge2, 4), edge_coefficients_v(edge2, 5)});
+         edge_coefficients_v(edge2, 4), edge_coefficients_v(edge2, 5)},
+        tol);
     const int in_or_out_3 = inoroutWline(
         v1coords, v2coords, v3coords,
         {edge_coefficients_v(edge3, 0), edge_coefficients_v(edge3, 1),
          edge_coefficients_v(edge3, 2), edge_coefficients_v(edge3, 3),
-         edge_coefficients_v(edge3, 4), edge_coefficients_v(edge3, 5)});
+         edge_coefficients_v(edge3, 4), edge_coefficients_v(edge3, 5)},
+        tol);
 
     face2edge_connectivity(i, 0) = edge1;
     face2edge_connectivity(i, 1) = in_or_out_1;
@@ -83,7 +86,7 @@ calculate_face_connectivity(Omega_h::Mesh mesh,
 
 void compute_edge_coefficients(Omega_h::Mesh &mesh,
                                Kokkos::View<double *[6]> edge_coefficients_v,
-                               const bool print_flag) {
+                               const bool print_flag, const double tol) {
   assert(edge_coefficients_v.extent(0) == mesh.nedges());
 
   const auto edgeVertices = mesh.ask_down(Omega_h::EDGE, Omega_h::VERT).ab2b;
@@ -107,10 +110,10 @@ void compute_edge_coefficients(Omega_h::Mesh &mesh,
     // coefficient vector of doubles of size 3
     Omega_h::Vector<6> edge_coefficients;
 
-    if (std::abs(v1coords[0] - v2coords[0]) < 1e-10) {
+    if (std::abs(v1coords[0] - v2coords[0]) < tol) {
       // cylinder surface: x^2 + y^2 - r^2 = 0
       edge_coefficients = {1.0, 0.0, 0.0, -v1coords[0] * v1coords[0], 0, 1.0};
-    } else if (std::abs(v1coords[1] - v2coords[1]) < 1e-10) {
+    } else if (std::abs(v1coords[1] - v2coords[1]) < tol) {
       // z plane: z-z0 = 0
       edge_coefficients = {0.0, 0.0, 1.0, -v1coords[1], 0, 0};
     } else {
@@ -237,7 +240,8 @@ int inorout(Omega_h::Vector<2> vert1, Omega_h::Vector<2> vert2,
 }
 
 int inoroutWline(Omega_h::Vector<2> vert1, Omega_h::Vector<2> vert2,
-                 Omega_h::Vector<2> vert3, std::vector<double> edgeCoeffs) {
+                 Omega_h::Vector<2> vert3, std::vector<double> edgeCoeffs,
+                 const double tol) {
 
   // ********* this part is same as before ********* //
   // * because, this will work or non cone surfaces
@@ -268,13 +272,12 @@ int inoroutWline(Omega_h::Vector<2> vert1, Omega_h::Vector<2> vert2,
   double c = edgeCoeffs[2] / 2.0;
   int topbottomflag = edgeCoeffs[4];
   int lineflag = 0;
-  if (std::abs(edgeCoeffs[1] + 1) <
-      1e-10) { // for cone, coefficient of z^2 is -1
+  if (std::abs(edgeCoeffs[1] + 1) < tol) { // for cone, coefficient of z^2 is -1
     // check if the third vertex is above or below the line
     int lineevals[3];
-    lineevals[0] = above_or_below_line(vert1, {m, c});
-    lineevals[1] = above_or_below_line(vert2, {m, c});
-    lineevals[2] = above_or_below_line(vert3, {m, c});
+    lineevals[0] = above_or_below_line(vert1, {m, c}, tol);
+    lineevals[1] = above_or_below_line(vert2, {m, c}, tol);
+    lineevals[2] = above_or_below_line(vert3, {m, c}, tol);
     // any two of them will be zero and the third will be non-zero
     for (int ev : lineevals) {
       // std::cout << "lin eval: " << ev << "\n";
@@ -304,9 +307,9 @@ int inoroutWline(Omega_h::Vector<2> vert1, Omega_h::Vector<2> vert2,
   for (double ev : evals) {
     // if ev is not close to 0 and positive, inoroutflag = 1 (outside), else -1
     // (inside)
-    if ((std::abs(ev) > 1e-6) && (ev > 0)) {
+    if ((std::abs(ev) > tol) && (ev > 0)) {
       return 1;
-    } else if ((std::abs(ev) > 1e-6) && (ev < 0)) {
+    } else if ((std::abs(ev) > tol) && (ev < 0)) {
       return -1;
     }
   }
@@ -315,15 +318,16 @@ int inoroutWline(Omega_h::Vector<2> vert1, Omega_h::Vector<2> vert2,
   return 0;
 }
 
-int above_or_below_line(Omega_h::Vector<2> point, std::vector<double> coeffs) {
+int above_or_below_line(Omega_h::Vector<2> point, std::vector<double> coeffs,
+                        const double tol) {
   // evaluate z for the point's x : z = m * x1 + c
   double z = coeffs[0] * point[0] + coeffs[1];
   // compare the point's z with the computed z: if point's z > z, return 1, if <
   // return -1 else 0
   double diff = point[1] - z;
-  if (diff > 1e-6) {
+  if (diff > tol) {
     return 1;
-  } else if (diff < -1e-6) {
+  } else if (diff < -tol) {
     return -1;
   } else {
     return 0;

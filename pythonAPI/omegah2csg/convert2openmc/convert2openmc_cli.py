@@ -6,9 +6,10 @@ from .convert2openmc import convert2openmc
 def main():
     parser = argparse.ArgumentParser(description='Convert Omega_h mesh to OpenMC geometry')
     parser.add_argument('filename', help='Omega_h mesh file (.osh)')
+    parser.add_argument('tol', type=float, help='tolerance')
     args = parser.parse_args()
 
-    convert2openmc(args.filename)
+    convert2openmc(filename=args.filename, tol=args.tol)
 
 
 # For setuptools entry point

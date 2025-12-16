@@ -13,17 +13,18 @@
 Kokkos::View<int *[6]>
 calculate_face_connectivity(Omega_h::Mesh mesh,
                             Kokkos::View<double *[6]> edge_coefficients_v,
-                            bool print_flag = false);
+                            bool print_flag = false, double tol = 1e-6);
 
 /**
  *
  * @param mesh Input mesh
  * @param print_flag Print flag for debugging
  * @param edge_coefficients_v Output edge coefficients of size (num_edges, 6)
+ * @param tol Tolerance for numerical comparisons
  */
 void compute_edge_coefficients(Omega_h::Mesh &mesh,
                                Kokkos::View<double *[6]> edge_coefficients_v,
-                               bool print_flag = false);
+                               bool print_flag = false, double tol = 1e-10);
 
 [[nodiscard]] Omega_h::LOs get_boundary_edge_ids(Omega_h::Mesh &mesh);
 
@@ -79,16 +80,19 @@ int inorout(Omega_h::Vector<2> vert1, Omega_h::Vector<2> vert2,
  * the line
  */
 int inoroutWline(Omega_h::Vector<2> vert1, Omega_h::Vector<2> vert2,
-                 Omega_h::Vector<2> vert3, std::vector<double> edgeCoeffs);
+                 Omega_h::Vector<2> vert3, std::vector<double> edgeCoeffs,
+                 double tol = 1e-6);
 
 /**
  * @brief Determines if a point is above or below a line
  *
  * @param point The point to check
  * @param coeffs {m, c} The coefficients of the line
+ * @param tol Tolerance for numerical comparisons
  * @return int 1 if above, -1 if below
  */
-int above_or_below_line(Omega_h::Vector<2> point, std::vector<double> coeffs);
+int above_or_below_line(Omega_h::Vector<2> point, std::vector<double> coeffs,
+                        double tol = 1e-6);
 
 /**
  * @brief Get the closest node to the vertical axis
