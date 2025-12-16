@@ -31,7 +31,7 @@ _dll.capi_get_face_connectivity.argtypes = [OmegaHMeshPointer, c_int, ndpointer(
 _dll.capi_get_all_geometry_info.restype = None
 _dll.capi_get_all_geometry_info.argtypes = [OmegaHMeshPointer, c_int, c_int, ndpointer(c_double), ndpointer(c_int), ndpointer(c_int), c_bool]
 
-type Coord = Tuple[float, float]
+Coord = Tuple[float, float]
 
 def is_horizontal(p1: Coord, p2: Coord, tol=1e-6) -> bool:
     return np.abs(p1[1] - p2[1]) < tol
