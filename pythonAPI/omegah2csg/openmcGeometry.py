@@ -9,6 +9,8 @@ This module provides bindings to C/C++ functions defined in the C++ library.
 import numpy as np
 from numpy.ctypeslib import ndpointer
 import openmc
+from enum import Enum
+from typing import Tuple
 
 from .OmegaHMesh import OmegaHMeshPointer, OmegaHMesh
 from ctypes import c_int, c_double, c_bool
@@ -28,6 +30,90 @@ _dll.capi_get_face_connectivity.argtypes = [OmegaHMeshPointer, c_int, ndpointer(
 
 _dll.capi_get_all_geometry_info.restype = None
 _dll.capi_get_all_geometry_info.argtypes = [OmegaHMeshPointer, c_int, c_int, ndpointer(c_double), ndpointer(c_int), ndpointer(c_int), c_bool]
+
+type Coord = Tuple[float, float]
+
+def is_horizontal(p1: Coord, p2: Coord, tol=1e-6) -> bool:
+    return np.abs(p1[1] - p2[1]) < tol
+
+def is_vertical(p1: Coord, p2: Coord, tol=1e-6) -> bool:
+    return np.abs(p1[0] - p2[0]) < tol
+
+def get_slope(p1: Coord, p2: Coord, tol=1e-6):
+    if is_horizontal(p1, p2, tol):
+        return 0
+    if is_vertical(p1, p2, tol):
+        return np.nan
+
+    m = (p2[1] - p1[1]) / (p2[0] - p1[0])
+    return m
+
+def get_vertical_intersection(p1: Coord, p2: Coord, tol=1e-6):
+    if is_horizontal(p1, p2, tol):
+        return p1[1]
+    if is_vertical(p1, p2, tol):
+        return np.nan
+
+    m = get_slope(p1, p2, tol)
+    c = p1[1] - m*p1[0]
+    return c
+
+def get_line_equation(p1: Coord, p2: Coord, tol=1e-6) -> Tuple:
+    """
+    Returns m,c for a line equation
+    :param p1: Point 1 Coordinates
+    :param p2: Point 2 Coordinates
+    :param tol: Tolerance
+    :return: m, c, up: Slope, Intersection, Up Flag for cone
+    """
+    if is_horizontal(p1, p2, tol):
+        return 0, p1[1], np.nan
+    if is_vertical(p1, p2, tol):
+        return np.inf, np.nan, np.nan
+
+    m = get_slope(p1, p2, tol)
+    c = p1[1] - m*p1[0]
+
+    # see doc for figure
+    up = p1[1] > c and p2[1] > c
+    # both should work since both points are on the right of z
+    assert up == (p1[1] > c or p2[1] > c)
+    return m, c, up
+
+def is_cone(p1: Coord, p2: Coord, tol=1e-6) -> bool:
+    return not is_horizontal(p1, p2, tol) and not is_vertical(p1, p2, tol)
+
+
+def create_z_cone(p1: Coord, p2: Coord, tol=1e-6) -> openmc.model.ZConeOneSided:
+    assert not is_horizontal(p1, p2, tol), "Horizonal line. Use create_z_plane instead of create_z_cone."
+    assert not is_vertical(p1, p2, tol), "Vertical line. Use create_z_cylinder instead of create_z_cone."
+
+    m,c, up = get_line_equation(p1, p2, tol)
+    assert not np.isinf(m), "Slope m found to be infinity."
+    assert not np.isnan(c), "Slope c found to be nan."
+
+    cone = openmc.model.ZConeOneSided(x0=0,y0=0,z0=c, r2=m*m, up=up)
+    return cone
+
+def create_z_plane(p1: Coord, p2:Coord, tol=1e-6) -> openmc.ZPlane:
+    assert is_horizontal(p1,p2,tol), "Not a horizontal line"
+    return openmc.ZPlane(z0=p1[1])
+
+def create_z_cylinder(p1: Coord, p2: Coord, tol=1e-6) -> openmc.ZCylinder:
+    assert is_vertical(p1,p2,tol), "Not a vertical line"
+    return openmc.ZCylinder(r=p1[0])
+
+
+def create_openmc_surface(p1: Coord, p2: Coord, tol=1e-6):
+    if is_horizontal(p1, p2, tol):
+        return create_z_plane(p1,p2,tol)
+    if is_vertical(p1, p2, tol):
+        return create_z_cylinder(p1,p2,tol)
+    if is_cone(p1, p2, tol):
+        return create_z_cone(p1,p2,tol)
+
+    raise RuntimeError(f"Error creating surface: {p1} and {p2}")
+
 
 
 def get_edge_coefficients(mesh: OmegaHMesh, print_debug=False):
