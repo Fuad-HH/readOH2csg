@@ -47,3 +47,6 @@ namespaces = false
 
 [tool.setuptools.package-data]
 "omegah2csg" = ["*.txt", "*.dat", "*.osh", "*.so"]
+
+[project.scripts]
+convert2openmc = "omegah2csg.convert2openmc.convert2openmc_cli:app"
