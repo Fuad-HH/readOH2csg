@@ -14,3 +14,4 @@ from .config import *
 
 from .OmegaHMesh import *
 from .openmcGeometry import *
+from .convert2degas2 import *

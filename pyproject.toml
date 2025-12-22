@@ -28,6 +28,7 @@ license-files = ["LICEN[CS]E*"]
 
 dependencies = [
     "openmc >= 0.15.0",
+    "netCDF4"
 ]
 [project.optional-dependencies]
 test = [
@@ -42,7 +43,7 @@ Issues = "https://github.com/Fuad-HH/readOH2csg/issues"
 where = ["pythonAPI"]
 include = ["omegah2csg*"]
 exclude = ["tests*"]
-namespaces = false
+namespaces = true
 
 
 [tool.setuptools.package-data]

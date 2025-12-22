@@ -55,6 +55,8 @@ void capi_get_all_geometry_info(OmegaHMesh oh_mesh, int n_edges, int n_faces,
                                 int boundary_edges[], int face_connectivity[],
                                 bool print_debug, double tol = 1e-6);
 
+bool capi_is_mesh_bounded_by_box(OmegaHMesh oh_mesh);
+
 #ifdef __cplusplus
 }
 #endif

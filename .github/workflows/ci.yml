@@ -108,7 +108,7 @@ jobs:
         run: |
           python -m pip install --extra-index-url https://shimwell.github.io/wheels openmc
           python -m pip install pytest
-          pip install build setuptools wheel
+          pip install build setuptools wheel netCDF4
 
       - name: Install omegah2csg package
         shell: bash
