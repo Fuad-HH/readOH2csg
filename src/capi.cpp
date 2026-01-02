@@ -238,3 +238,33 @@ extern "C" bool capi_is_mesh_bounded_by_box(OmegaHMesh oh_mesh) {
   auto mesh = reinterpret_cast<Omega_h::Mesh *>(oh_mesh.pointer);
   return mesh->has_tag(Omega_h::VERT, "isOnWall");
 }
+
+extern "C" bool capi_has_boundary_layer(OmegaHMesh oh_mesh) {
+  auto mesh = reinterpret_cast<Omega_h::Mesh *>(oh_mesh.pointer);
+  return mesh->has_tag(Omega_h::FACE, "offset_face");
+}
+
+extern "C" bool capi_get_mesh_int_tag_array(OmegaHMesh oh_mesh, const int dim,
+                                            const char *name, int *tag_aray,
+                                            const int size) {
+  auto mesh = reinterpret_cast<Omega_h::Mesh *>(oh_mesh.pointer);
+  if (!mesh->has_tag(dim, name)) {
+    return false;
+  }
+  auto tag = mesh->get_tag<Omega_h::LO>(dim, name);
+  if (tag->type() != OMEGA_H_I32) {
+    throw std::runtime_error("Error: tag type is not int32.");
+  }
+
+  Omega_h::Read<Omega_h::LO> tag_data = tag->array();
+  if (tag_data.size() != size) {
+    throw std::runtime_error(
+        "Error: size of tag array does not match provided size.");
+  }
+  auto host_tag_data = Omega_h::HostRead<Omega_h::LO>(tag_data);
+  for (int i = 0; i < size; ++i) {
+    tag_aray[i] = host_tag_data[i];
+  }
+
+  return true;
+}

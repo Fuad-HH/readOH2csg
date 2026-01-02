@@ -1,4 +1,8 @@
-from ctypes import c_void_p, c_char_p, Structure, c_int
+from ctypes import c_void_p, c_char_p, Structure, c_int, c_bool
+
+import numpy as np
+from numpy.ctypeslib import ndpointer
+
 from . import _dll, kokkos_runtime
 import os
 
@@ -30,6 +34,15 @@ _dll.get_num_entities.argtypes = [OmegaHMeshPointer, c_int]
 
 _dll.get_dim.restype = c_int
 _dll.get_dim.argtypes = [OmegaHMeshPointer]
+
+_dll.capi_is_mesh_bounded_by_box.restype = c_bool
+_dll.capi_is_mesh_bounded_by_box.argtypes = [OmegaHMeshPointer]
+
+_dll.capi_has_boundary_layer.restype = c_bool
+_dll.capi_has_boundary_layer.argtypes = [OmegaHMeshPointer]
+
+_dll.capi_get_mesh_int_tag_array.restype = c_bool
+_dll.capi_get_mesh_int_tag_array.argtypes = [OmegaHMeshPointer, c_int, c_char_p, ndpointer(c_int), c_int]
 
 
 class OmegaHMesh:
@@ -92,5 +105,42 @@ class OmegaHMesh:
         if self.mesh is None:
             raise RuntimeError("No mesh loaded. Use as context manager.")
         return _dll.get_dim(self.mesh)
+
+    def is_bounded_by_box(self) -> bool:
+        if not kokkos_runtime.is_running():
+            raise RuntimeError("Kokkos not running...")
+
+        try:
+            return _dll.capi_is_mesh_bounded_by_box(self.mesh)
+        except Exception as exception:
+            raise RuntimeError(f"Error finding box: {exception}")
+
+    def has_boundary_layer(self) -> bool:
+        """
+        Checks if the mesh has a single boundary layer after the wall
+        :return: If the input mesh has a single boundary layer after the wall
+        """
+        if not kokkos_runtime.is_running():
+            raise RuntimeError("Kokkos not running...")
+
+        try:
+            return _dll.capi_has_boundary_layer(self.mesh)
+        except Exception as exception:
+            raise RuntimeError(f"Error finding layer: {exception}")
+
+
+    def get_integer_tag_array(self, dim, name) -> np.ndarray:
+        if not kokkos_runtime.is_running():
+            raise RuntimeError("Kokkos not running...")
+
+        try:
+            array_size = self.num_entities(dim)
+            tag_array = np.empty(array_size, dtype=np.int32)
+            success = _dll.capi_get_mesh_int_tag_array(self.mesh, dim, str(name).encode('utf-8'), tag_array, array_size)
+            assert success, "Internal error"
+            return tag_array
+        except Exception as exception:
+            raise RuntimeError(f"Error getting integer tag: {exception}")
+
 
 

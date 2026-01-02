@@ -1,45 +1,33 @@
-from ctypes import c_bool
-
 import netCDF4
 
 from ..openmcGeometry import get_all_geometry_info
 from ..OmegaHMesh import OmegaHMesh
-from .. import _dll, OmegaHMeshPointer, kokkos_runtime
-
-_dll.capi_is_mesh_bounded_by_box.restype = c_bool
-_dll.capi_is_mesh_bounded_by_box.argtypes = [OmegaHMeshPointer]
-
-def is_bounded_by_box(mesh: OmegaHMesh):
-    if not kokkos_runtime.is_running():
-        raise RuntimeError("Kokkos not running...")
-
-    try:
-        return _dll.capi_is_mesh_bounded_by_box(mesh.mesh)
-    except Exception as exception:
-        raise RuntimeError(f"Error finding box: {exception}")
-
 
 
 def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', tol=1e-10):
     assert netcdf_filename.endswith('.nc'), "Degas2 mesh name should end with .nc but given {}".format(netcdf_filename)
     with OmegaHMesh(mesh_filename) as mesh:
-        assert is_bounded_by_box(mesh), "Degas2 requires mesh to be bounded by box. Use addBoxAround tool from tomms."
+        assert mesh.has_boundary_layer, "Degas2 requires mesh to have a boundary layer. Use addBonudaryLayer tool from tomms."
         [edge_coefficients, boundary_edge_ids, face2edge_map] = get_all_geometry_info(mesh, tol=tol)
-
-    # in  notebook, ncells add number of wall twice
-    ncells = face2edge_map.shape[0]
-    # notebook has 2*nwall extra
-    Nsurf_tot = edge_coefficients.shape[0] + ncells
+        num_node = mesh.num_entities(0)
 
 
+    num_tri = face2edge_map.shape[0]
+    num_edge = edge_coefficients.shape[0]
+    num_total_surface = num_edge + 2*num_tri # each triangle has two cut surfaces
+    num_wall_edges = boundary_edge_ids.shape[0]
+    nboundaries = num_wall_edges + 5*num_tri # do not know why
+    nneighbors = num_edge*2
 
-    # TODO NETCDF_CLASSIC is limited to 2GB
+
+
+    # FIXME NETCDF_CLASSIC is limited to 2GB
     root_g = netCDF4.Dataset(netcdf_filename, mode='w', format='NETCDF4_CLASSIC')
     vector = root_g.createDimension("vector", 3)
     string = root_g.createDimension("string", 300)
     cell_info_ind = root_g.createDimension("cell_info_ind", 4)
-    cell_ind = root_g.createDimension("cell_ind", ncells + 1)
-    surface_ind = root_g.createDimension("surface_ind", Nsurf_tot)
+    cell_ind = root_g.createDimension("cell_ind", num_tri + 1)
+    surface_ind = root_g.createDimension("surface_ind", num_total_surface)
     boundary_ind = root_g.createDimension("boundary_ind", nboundaries)
     neighbor_ind = root_g.createDimension("neighbor_ind", nneighbors + 1)
     neg_pos = root_g.createDimension("neg_pos", 2)
@@ -52,17 +40,17 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', tol=1e-10):
     zone_type_ind = root_g.createDimension("zone_type_ind", 4)
     zone_index_ind = root_g.createDimension("zone_index_ind", 4)
     zone_ind = root_g.createDimension("zone_ind", Nplasma + 1)
-    sector_ind = root_g.createDimension("sector_ind", 2 * Nwall + 1)
+    sector_ind = root_g.createDimension("sector_ind", 2 * num_wall_edges + 1)
     sector_neg_pos_ind = root_g.createDimension("sector_neg_pos_ind", 2)
     sector_type_ind = root_g.createDimension("sector_type_ind", 17)
     vacuum_ind = root_g.createDimension("vacuum_ind", 1)
-    plasma_ind = root_g.createDimension("plasma_ind", Nwall + 1)
-    target_ind = root_g.createDimension("target_ind", Nwall + 1)
+    plasma_ind = root_g.createDimension("plasma_ind", num_wall_edges + 1)
+    target_ind = root_g.createDimension("target_ind", num_wall_edges + 1)
     wall_ind = root_g.createDimension("wall_ind", 1)
     exit_ind = root_g.createDimension("exit_ind", 1)
     sc_diag_name_string = root_g.createDimension("sc_diag_name_string", 40)
     diag_grp_ind = root_g.createDimension("diag_grp_ind", 4)
-    sc_diag_ind = root_g.createDimension("sc_diag_ind", 3 * Nwall)
+    sc_diag_ind = root_g.createDimension("sc_diag_ind", 3 * num_wall_edges)
     de_symbol_string = root_g.createDimension("de_symbol_string", 24)
     de_name_string = root_g.createDimension("de_name_string", 100)
     de_grp_ind = root_g.createDimension("de_grp_ind", 1)
