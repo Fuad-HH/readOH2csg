@@ -61,6 +61,7 @@ bool capi_get_mesh_int_tag_array(OmegaHMesh oh_mesh, int dim, const char *name,
                                  int *tag_aray, int size);
 void capi_get_cell_bounding_boxes(OmegaHMesh oh_mesh, double *bbox, int size);
 void capi_get_cell_volumes(OmegaHMesh oh_mesh, double *volumes, int size);
+void capi_get_cell_centroids(OmegaHMesh oh_mesh, double *centroids, int size);
 
 #ifdef __cplusplus
 }

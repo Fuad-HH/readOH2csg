@@ -48,6 +48,8 @@ _dll.capi_get_cell_bounding_boxes.argtypes = [OmegaHMeshPointer, ndpointer(c_dou
 
 _dll.capi_get_cell_volumes.argtypes = [OmegaHMeshPointer, ndpointer(c_double), c_int]
 
+_dll.capi_get_cell_centroids.argtypes = [OmegaHMeshPointer, ndpointer(c_double), c_int]
+
 
 class OmegaHMesh:
     """
@@ -173,5 +175,17 @@ class OmegaHMesh:
             return cell_volumes
         except Exception as exception:
             raise RuntimeError(f"Error getting cell volumes: {exception}")
+
+    def get_cell_centroids(self) -> np.ndarray:
+        if not kokkos_runtime.is_running():
+            raise RuntimeError("Kokkos not running...")
+
+        try:
+            n_cells = self.num_entities(2)
+            cell_centroids = np.empty(2*n_cells, dtype=np.float64)
+            _dll.capi_get_cell_centroids(self.mesh, cell_centroids, 2*n_cells)
+            return cell_centroids
+        except Exception as exception:
+            raise RuntimeError(f"Error getting cell centroids: {exception}")
 
 

@@ -72,6 +72,22 @@ def test_get_cell_bounding_boxes():
         # ymax
         assert np.isclose(bboxes[i*4+3], bbox_maxes[i,2], atol=coord_tol), f"Bounding box mismatch for face {i}"
 
+def test_get_cell_centroids():
+    with OmegaHMesh(with_boundary_layer_file) as mesh:
+        boundary_face_flag = mesh.get_boundary_face_flag()
+        num_boundary_faces = boundary_face_flag.sum()
+        num_inside_faces = mesh.num_entities(2) - num_boundary_faces
+        centroids = mesh.get_cell_centroids()
+
+    with nc.Dataset(dg2_generated_geometry_filename, "r", format="NETCDF4_CLASSIC") as ref_geometry:
+        nc_centroids = ref_geometry["zone_center"][:]
+
+    for i in range(0, num_inside_faces):
+        coord_tol = 1e-5
+        assert np.isclose(centroids[i*2+0], nc_centroids[i, 0], atol=coord_tol), "Centroid x mismatch for face {i}"
+        assert np.isclose(centroids[i*2+1], nc_centroids[i, 2], atol=coord_tol), "Centroid y mismatch for face {i}"
+
+
 
 def test_convert2degas2():
     with nc.Dataset(dg2_generated_geometry_filename, "r", format="NETCDF4_CLASSIC") as ref_geometry:

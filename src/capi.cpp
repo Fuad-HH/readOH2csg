@@ -345,3 +345,35 @@ extern "C" void capi_get_cell_volumes(OmegaHMesh oh_mesh, double *volumes,
     volumes[i] = host_volumes_v[i];
   }
 }
+
+extern "C" void capi_get_cell_centroids(OmegaHMesh oh_mesh, double *centroids,
+                                        int size) {
+  auto mesh = reinterpret_cast<Omega_h::Mesh *>(oh_mesh.pointer);
+  const int n_elements = mesh->nelems();
+  if (size != 2 * n_elements) {
+    throw std::runtime_error(
+        "Error: size of volumes array does not match number of elements.");
+  }
+
+  const auto coords = mesh->coords();
+  const auto elem2node = mesh->ask_elem_verts();
+
+  Omega_h::Write<double> centroids_v(2 * n_elements, "centroids_view");
+
+  auto compute_centroids = OMEGA_H_LAMBDA(const Omega_h::LO elem) {
+    const auto v0 = Omega_h::get_vector<2>(coords, elem2node[elem * 3 + 0]);
+    const auto v1 = Omega_h::get_vector<2>(coords, elem2node[elem * 3 + 1]);
+    const auto v2 = Omega_h::get_vector<2>(coords, elem2node[elem * 3 + 2]);
+
+    const auto centroid = (v0 + v1 + v2) / 3.0;
+
+    centroids_v[2 * elem + 0] = centroid[0];
+    centroids_v[2 * elem + 1] = centroid[1];
+  };
+  Omega_h::parallel_for(n_elements, compute_centroids, "compute_volumes");
+
+  Omega_h::HostWrite centroids_v_host(centroids_v);
+  for (int i = 0; i < centroids_v_host.size(); ++i) {
+    centroids[i] = centroids_v_host[i];
+  }
+}

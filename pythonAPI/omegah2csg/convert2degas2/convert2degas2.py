@@ -12,7 +12,9 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', tol=1e-10):
         [edge_coefficients, boundary_edge_ids, face2edge_map] = get_all_geometry_info(mesh, tol=tol)
         boundary_face_flag = mesh.get_boundary_face_flag()
         num_node = mesh.num_entities(0)
-
+        cell_bounding_boxes = mesh.get_cell_bounding_boxes()
+        tri_volumes = mesh.get_cell_volumes()
+        centroids = mesh.get_cell_centroids()
 
     num_tri = face2edge_map.shape[0] # ncells
     num_boundary_face = boundary_face_flag.sum()
@@ -27,6 +29,12 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', tol=1e-10):
 
     # FIXME NETCDF_CLASSIC is limited to 2GB
     root_g = netCDF4.Dataset(netcdf_filename, mode='w', format='NETCDF4_CLASSIC')
+
+
+    # *********************************************************************************************** #
+    # ---------------------------------- Dimensions ------------------------------------------------- #
+    # *********************************************************************************************** #
+
     vector = root_g.createDimension("vector", 3)
     string = root_g.createDimension("string", 300)
     cell_info_ind = root_g.createDimension("cell_info_ind", 4)
@@ -62,6 +70,10 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', tol=1e-10):
     de_tot_view_ind = root_g.createDimension("de_tot_view_ind", 1)
     de_start_end_ind = root_g.createDimension("de_start_end_ind", 2)
     de_view_ind = root_g.createDimension("de_view_ind", 1)
+
+    # *********************************************************************************************** #
+    # ---------------------------------- Variables -------------------------------------------------- #
+    # *********************************************************************************************** #
 
     ncells_var = root_g.createVariable("ncells", "i4")
     nsurfaces_var = root_g.createVariable("nsurfaces", "i4")
@@ -153,6 +165,11 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', tol=1e-10):
     de_view_size_var = root_g.createVariable("de_view_size", "i4")
     de_view_tab_var = root_g.createVariable("de_view_tab", "i4", ("de_view_ind",))
 
+
+    # *********************************************************************************************** #
+    # ---------------------------------- Fill Up ---------------------------------------------------- #
+    # *********************************************************************************************** #
+
     ncells_var[:] = num_tri
     nsurfaces_var[:] = num_total_surface
     nboundaries_var[:] = [nboundaries]
@@ -160,7 +177,6 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', tol=1e-10):
     ntransforms_var[:] = 0 # hardcoded to zero
     geometry_symmetry_var[:] = 2 # hardcoded to two
 
-    cell_bounding_boxes = mesh.get_cell_bounding_boxes()
     assert cell_bounding_boxes.size == num_tri * 4
     universal_cell_min = [np.min(cell_bounding_boxes[0::4]), 0.0, np.min(cell_bounding_boxes[1::4])]
     universal_cell_max = [np.max(cell_bounding_boxes[2::4]), 6.28318530717959, np.max(cell_bounding_boxes[3::4])]
@@ -168,18 +184,17 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', tol=1e-10):
     universal_cell_max_var[:] = universal_cell_max
 
     zone_min = np.zeros((Nplasma + 1, 3))
-    zone_min[0:Nplasma, 0] = cell_bounding_boxes[0:Nplasma:4]
-    zone_min[0:Nplasma, 2] = cell_bounding_boxes[1:Nplasma:4]
+    zone_min[0:Nplasma, 0] = cell_bounding_boxes[0:Nplasma*4:4]
+    zone_min[0:Nplasma, 2] = cell_bounding_boxes[1:Nplasma*4:4]
     zone_min[Nplasma, :] = [universal_cell_min[0], 0.0, universal_cell_min[2]]
     zone_min_var[:] = zone_min
 
     zone_max = np.zeros((Nplasma + 1, 3))
-    zone_max[0:Nplasma, 0] = cell_bounding_boxes[2:Nplasma:4]
-    zone_max[0:Nplasma, 2] = cell_bounding_boxes[3:Nplasma:4]
+    zone_max[0:Nplasma, 0] = cell_bounding_boxes[2:Nplasma*4:4]
+    zone_max[0:Nplasma, 2] = cell_bounding_boxes[3:Nplasma*4:4]
     zone_max[Nplasma, :] = [universal_cell_max[0], 0.0, universal_cell_max[2]]
     zone_max_var[:] = zone_max
 
-    tri_volumes = mesh.get_cell_volumes()
     total_volume = tri_volumes.sum()
     universal_cell_vol_var[:] = total_volume
 
@@ -199,6 +214,15 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', tol=1e-10):
     cells[Nplasma + 1:, 3] = Nplasma + 1
     ncells_var[:] = ncells
     cells_var[:] = cells
+
+    surfaces = np.zeros([num_total_surface, 2, 2], dtype=int)
+
+    zone_center = np.zeros([Nplasma + 1, 3])
+    zone_center[0:Nplasma, 0] = centroids[0:Nplasma*2:2]
+    zone_center[0:Nplasma, 1] = centroids[1:Nplasma*2:2]
+    # these two are slightly different from notebook
+    zone_center[Nplasma, 0] = np.average(centroids[0:Nplasma*2:2])
+    zone_center[Nplasma, 2] = np.average(centroids[1:Nplasma*2:2])
 
     diagnostic_grp_name_var[0, :] = "UNUSED                                  "
     diagnostic_grp_name_var[1, :] = "Wall and Target Counts                  "
