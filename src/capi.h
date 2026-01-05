@@ -59,6 +59,8 @@ bool capi_is_mesh_bounded_by_box(OmegaHMesh oh_mesh);
 bool capi_has_boundary_layer(OmegaHMesh oh_mesh);
 bool capi_get_mesh_int_tag_array(OmegaHMesh oh_mesh, int dim, const char *name,
                                  int *tag_aray, int size);
+void capi_get_cell_bounding_boxes(OmegaHMesh oh_mesh, double *bbox, int size);
+void capi_get_cell_volumes(OmegaHMesh oh_mesh, double *volumes, int size);
 
 #ifdef __cplusplus
 }

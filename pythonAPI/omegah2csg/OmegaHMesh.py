@@ -1,4 +1,4 @@
-from ctypes import c_void_p, c_char_p, Structure, c_int, c_bool
+from ctypes import c_void_p, c_char_p, Structure, c_int, c_bool, c_double
 
 import numpy as np
 from numpy.ctypeslib import ndpointer
@@ -43,6 +43,10 @@ _dll.capi_has_boundary_layer.argtypes = [OmegaHMeshPointer]
 
 _dll.capi_get_mesh_int_tag_array.restype = c_bool
 _dll.capi_get_mesh_int_tag_array.argtypes = [OmegaHMeshPointer, c_int, c_char_p, ndpointer(c_int), c_int]
+
+_dll.capi_get_cell_bounding_boxes.argtypes = [OmegaHMeshPointer, ndpointer(c_double), c_int]
+
+_dll.capi_get_cell_volumes.argtypes = [OmegaHMeshPointer, ndpointer(c_double), c_int]
 
 
 class OmegaHMesh:
@@ -142,5 +146,32 @@ class OmegaHMesh:
         except Exception as exception:
             raise RuntimeError(f"Error getting integer tag: {exception}")
 
+
+    def get_boundary_face_flag(self) -> np.ndarray:
+        return self.get_integer_tag_array(2, "offset_face")
+
+
+    def get_cell_bounding_boxes(self) -> np.ndarray:
+        if not kokkos_runtime.is_running():
+            raise RuntimeError("Kokkos not running...")
+        try:
+            n_cells = self.num_entities(2)
+            cell_bounding_boxes = np.empty(n_cells*4, dtype=np.float64)
+            _dll.capi_get_cell_bounding_boxes(self.mesh, cell_bounding_boxes, n_cells*4)
+            return cell_bounding_boxes
+        except Exception as exception:
+            raise RuntimeError(f"Error getting cell bounding boxes: {exception}")
+
+    def get_cell_volumes(self) -> np.ndarray:
+        if not kokkos_runtime.is_running():
+            raise RuntimeError("Kokkos not running...")
+
+        try:
+            n_cells = self.num_entities(2)
+            cell_volumes = np.empty(n_cells, dtype=np.float64)
+            _dll.capi_get_cell_volumes(self.mesh, cell_volumes, n_cells)
+            return cell_volumes
+        except Exception as exception:
+            raise RuntimeError(f"Error getting cell volumes: {exception}")
 
 

@@ -1,4 +1,5 @@
 import netCDF4
+import numpy as np
 
 from ..openmcGeometry import get_all_geometry_info
 from ..OmegaHMesh import OmegaHMesh
@@ -9,12 +10,15 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', tol=1e-10):
     with OmegaHMesh(mesh_filename) as mesh:
         assert mesh.has_boundary_layer, "Degas2 requires mesh to have a boundary layer. Use addBonudaryLayer tool from tomms."
         [edge_coefficients, boundary_edge_ids, face2edge_map] = get_all_geometry_info(mesh, tol=tol)
+        boundary_face_flag = mesh.get_boundary_face_flag()
         num_node = mesh.num_entities(0)
 
 
-    num_tri = face2edge_map.shape[0]
+    num_tri = face2edge_map.shape[0] # ncells
+    num_boundary_face = boundary_face_flag.sum()
+    Nplasma = num_tri - num_boundary_face
     num_edge = edge_coefficients.shape[0]
-    num_total_surface = num_edge + 2*num_tri # each triangle has two cut surfaces
+    num_total_surface = num_edge + 2*num_tri # each triangle has two cut surfaces nSurf_tot, nsurfaces
     num_wall_edges = boundary_edge_ids.shape[0]
     nboundaries = num_wall_edges + 5*num_tri # do not know why
     nneighbors = num_edge*2
@@ -148,6 +152,60 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', tol=1e-10):
     de_view_base_var = root_g.createVariable("de_view_base", "i4", ("de_grp_ind",))
     de_view_size_var = root_g.createVariable("de_view_size", "i4")
     de_view_tab_var = root_g.createVariable("de_view_tab", "i4", ("de_view_ind",))
+
+    ncells_var[:] = num_tri
+    nsurfaces_var[:] = num_total_surface
+    nboundaries_var[:] = [nboundaries]
+    nneighbors_var[:] = nneighbors
+    ntransforms_var[:] = 0 # hardcoded to zero
+    geometry_symmetry_var[:] = 2 # hardcoded to two
+
+    cell_bounding_boxes = mesh.get_cell_bounding_boxes()
+    assert cell_bounding_boxes.size == num_tri * 4
+    universal_cell_min = [np.min(cell_bounding_boxes[0::4]), 0.0, np.min(cell_bounding_boxes[1::4])]
+    universal_cell_max = [np.max(cell_bounding_boxes[2::4]), 6.28318530717959, np.max(cell_bounding_boxes[3::4])]
+    universal_cell_min_var[:] = universal_cell_min
+    universal_cell_max_var[:] = universal_cell_max
+
+    zone_min = np.zeros((Nplasma + 1, 3))
+    zone_min[0:Nplasma, 0] = cell_bounding_boxes[0:Nplasma:4]
+    zone_min[0:Nplasma, 2] = cell_bounding_boxes[1:Nplasma:4]
+    zone_min[Nplasma, :] = [universal_cell_min[0], 0.0, universal_cell_min[2]]
+    zone_min_var[:] = zone_min
+
+    zone_max = np.zeros((Nplasma + 1, 3))
+    zone_max[0:Nplasma, 0] = cell_bounding_boxes[2:Nplasma:4]
+    zone_max[0:Nplasma, 2] = cell_bounding_boxes[3:Nplasma:4]
+    zone_max[Nplasma, :] = [universal_cell_max[0], 0.0, universal_cell_max[2]]
+    zone_max_var[:] = zone_max
+
+    tri_volumes = mesh.get_cell_volumes()
+    total_volume = tri_volumes.sum()
+    universal_cell_vol_var[:] = total_volume
+
+    zone_volume = np.empty(Nplasma+1)
+    zone_volume[0:Nplasma] = tri_volumes[0:Nplasma]
+    zone_volume[Nplasma] = total_volume
+    zone_volume_var[:] = zone_volume
+
+    # in note ncells = Ntri = Nplasma + 2*Nwall; ncells = ncells = Ntri+2*Nwall
+    ncells = num_tri + num_boundary_face
+    cells = np.zeros([ncells + 1, 4], dtype=int)
+    cells[0, 0:4] = [1, num_wall_edges, num_wall_edges, 0]
+    cells[1:num_tri + 1, 0] = 1 + num_wall_edges + 5 * np.array(range(0, num_tri), dtype=int)
+    cells[1:num_tri + 1, 1] = 3
+    cells[1:num_tri + 1, 2] = 5
+    cells[1:Nplasma + 1, 3] = np.array(range(1, Nplasma + 1), dtype=int)
+    cells[Nplasma + 1:, 3] = Nplasma + 1
+    ncells_var[:] = ncells
+    cells_var[:] = cells
+
+    diagnostic_grp_name_var[0, :] = "UNUSED                                  "
+    diagnostic_grp_name_var[1, :] = "Wall and Target Counts                  "
+    diagnostic_grp_name_var[2, :] = "Wall and Target Energy Spectrum         "
+    diagnostic_grp_name_var[3, :] = "Wall and Target Angle Spectrum          "
+    detector_name_var[
+        :] = "UNUSED                                                                                              "
 
     root_g.close()
 

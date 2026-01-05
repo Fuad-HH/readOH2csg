@@ -10,6 +10,7 @@
 
 #include <Omega_h_array_ops.hpp>
 #include <Omega_h_file.hpp>
+#include <Omega_h_for.hpp>
 #include <Omega_h_library.hpp>
 #include <Omega_h_mark.hpp>
 #include <Omega_h_mesh.hpp>
@@ -267,4 +268,80 @@ extern "C" bool capi_get_mesh_int_tag_array(OmegaHMesh oh_mesh, const int dim,
   }
 
   return true;
+}
+
+extern "C" void capi_get_cell_bounding_boxes(OmegaHMesh oh_mesh, double *bbox,
+                                             const int size) {
+  auto mesh = reinterpret_cast<Omega_h::Mesh *>(oh_mesh.pointer);
+  const int n_elements = mesh->nelems();
+  if (size != n_elements * 4) { // 2D bbox: xmin, ymin, xmax, ymax
+    throw std::runtime_error(
+        "Error: size of bbox array does not match number of elements * 4.");
+  }
+  const auto coords = mesh->coords();
+  const auto face2node = mesh->ask_elem_verts();
+
+  Omega_h::Write<double> bbox_view(n_elements * 4, "bbox_view");
+
+  auto calculate_bbox = OMEGA_H_LAMBDA(const Omega_h::LO elem) {
+    double xmin = INT64_MAX;
+    double xmax = INT64_MIN;
+    double ymin = INT64_MAX;
+    double ymax = INT64_MIN;
+
+    for (int vert = 0; vert < 3; ++vert) {
+      const int node = face2node[elem * 3 + vert];
+      auto elem_coords = Omega_h::get_vector<2>(coords, node);
+      if (elem_coords[0] < xmin)
+        xmin = elem_coords[0];
+      if (elem_coords[0] > xmax)
+        xmax = elem_coords[0];
+      if (elem_coords[1] < ymin)
+        ymin = elem_coords[1];
+      if (elem_coords[1] > ymax)
+        ymax = elem_coords[1];
+    }
+
+    bbox_view[elem * 4 + 0] = xmin;
+    bbox_view[elem * 4 + 1] = ymin;
+    bbox_view[elem * 4 + 2] = xmax;
+    bbox_view[elem * 4 + 3] = ymax;
+  };
+  Omega_h::parallel_for(n_elements, calculate_bbox, "calculate_bbox");
+
+  Omega_h::HostWrite host_bbox_view(bbox_view);
+  for (int i = 0; i < host_bbox_view.size(); ++i) {
+    bbox[i] = host_bbox_view[i];
+  }
+}
+
+extern "C" void capi_get_cell_volumes(OmegaHMesh oh_mesh, double *volumes,
+                                      int size) {
+  auto mesh = reinterpret_cast<Omega_h::Mesh *>(oh_mesh.pointer);
+  const int n_elements = mesh->nelems();
+  if (size != n_elements) {
+    throw std::runtime_error(
+        "Error: size of volumes array does not match number of elements.");
+  }
+
+  const auto coords = mesh->coords();
+  const auto elem2node = mesh->ask_elem_verts();
+  Omega_h::Write<double> volumes_v(n_elements, "volumes_view");
+
+  auto compute_volume = OMEGA_H_LAMBDA(const Omega_h::LO elem) {
+    const auto v0 = Omega_h::get_vector<2>(coords, elem2node[elem * 3 + 0]);
+    const auto v1 = Omega_h::get_vector<2>(coords, elem2node[elem * 3 + 1]);
+    const auto v2 = Omega_h::get_vector<2>(coords, elem2node[elem * 3 + 2]);
+
+    const auto centroid = (v0 + v1 + v2) / 3.0;
+
+    const double area = 0.5 * Kokkos::abs(Omega_h::cross(v1 - v0, v2 - v0));
+    volumes_v[elem] = 2 * Kokkos::numbers::pi_v<double> * area * centroid[0];
+  };
+  Omega_h::parallel_for(n_elements, compute_volume, "compute_volumes");
+
+  Omega_h::HostWrite host_volumes_v(volumes_v);
+  for (int i = 0; i < host_volumes_v.size(); ++i) {
+    volumes[i] = host_volumes_v[i];
+  }
 }
