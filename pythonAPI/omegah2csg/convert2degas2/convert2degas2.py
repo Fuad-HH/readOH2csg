@@ -22,8 +22,8 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', tol=1e-10):
     Nplasma = num_tri - num_boundary_face
     num_edge = edge_coefficients.shape[0]
     num_total_surface = num_edge + 2*num_tri # each triangle has two cut surfaces nSurf_tot, nsurfaces
-    num_wall_edges = boundary_edge_ids.shape[0]
-    nboundaries = num_wall_edges + 5*num_tri # do not know why
+    Nwall = boundary_edge_ids.shape[0]
+    nboundaries = Nwall + 5*num_tri # do not know why
     nneighbors = num_edge*2
 
 
@@ -53,17 +53,17 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', tol=1e-10):
     zone_type_ind = root_g.createDimension("zone_type_ind", 4)
     zone_index_ind = root_g.createDimension("zone_index_ind", 4)
     zone_ind = root_g.createDimension("zone_ind", Nplasma + 1)
-    sector_ind = root_g.createDimension("sector_ind", 2 * num_wall_edges + 1)
+    sector_ind = root_g.createDimension("sector_ind", 2 * Nwall + 1)
     sector_neg_pos_ind = root_g.createDimension("sector_neg_pos_ind", 2)
     sector_type_ind = root_g.createDimension("sector_type_ind", 17)
     vacuum_ind = root_g.createDimension("vacuum_ind", 1)
-    plasma_ind = root_g.createDimension("plasma_ind", num_wall_edges + 1)
-    target_ind = root_g.createDimension("target_ind", num_wall_edges + 1)
+    plasma_ind = root_g.createDimension("plasma_ind", Nwall + 1)
+    target_ind = root_g.createDimension("target_ind", Nwall + 1)
     wall_ind = root_g.createDimension("wall_ind", 1)
     exit_ind = root_g.createDimension("exit_ind", 1)
     sc_diag_name_string = root_g.createDimension("sc_diag_name_string", 40)
     diag_grp_ind = root_g.createDimension("diag_grp_ind", 4)
-    sc_diag_ind = root_g.createDimension("sc_diag_ind", 3 * num_wall_edges)
+    sc_diag_ind = root_g.createDimension("sc_diag_ind", 3 * Nwall)
     de_symbol_string = root_g.createDimension("de_symbol_string", 24)
     de_name_string = root_g.createDimension("de_name_string", 100)
     de_grp_ind = root_g.createDimension("de_grp_ind", 1)
@@ -206,8 +206,8 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', tol=1e-10):
 
     # in note ncells = Ntri = Nplasma + 2*Nwall; ncells = ncells = Ntri+2*Nwall
     cells = np.zeros([num_tri + 1, 4], dtype=int) # ask
-    cells[0, 0:4] = [1, num_wall_edges, num_wall_edges, 0]
-    cells[1:num_tri + 1, 0] = 1 + num_wall_edges + 5 * np.array(range(0, num_tri), dtype=int)
+    cells[0, 0:4] = [1, Nwall, Nwall, 0]
+    cells[1:num_tri + 1, 0] = 1 + Nwall + 5 * np.array(range(0, num_tri), dtype=int)
     cells[1:num_tri + 1, 1] = 3
     cells[1:num_tri + 1, 2] = 5
     cells[1:Nplasma + 1, 3] = np.array(range(1, Nplasma + 1), dtype=int)
@@ -215,7 +215,7 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', tol=1e-10):
     ncells_var[:] = num_tri
     cells_var[:] = cells
 
-    surfaces = np.zeros([num_total_surface, 2, 2], dtype=int)
+    surfaces = np.zeros([num_total_surface, 2, 2], dtype=int) # ask
 
     zone_center = np.zeros([Nplasma + 1, 3])
     zone_center[0:Nplasma, 0] = centroids[0:Nplasma*2:2]
@@ -230,6 +230,144 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', tol=1e-10):
     surface_points[0:num_edge, :, 2] = edge_coordinates[1:num_edge*4:2].reshape((num_edge, 2))
     surface_points_var[:] = surface_points
 
+
+
+    # ----------------------- Unmodified Variables ----------------------------- #
+    de_grps = 0
+    de_view_size = 1
+    INT_UNUSED = 2000000000
+    DBL_UNUSED = 2.0e30
+    STR_UNUSED = "UNUSED                                                                                              "
+    de_grps = 0
+    de_max_bins = 0
+    de_zone_fragment_dim = 100
+    de_zone_frags_size = 0
+    de_zone_frags_ind = 100
+    detector_total_views = 0
+    zn_num = Nplasma + 1
+    sc_vacuum_num = 0
+    sc_plasma_num = Nwall
+    sc_target_num = Nwall
+    sc_wall_num = 0
+    sc_exit_num = 0
+    sc_diagnostic_grps = 3
+    sc_diag_max_bins = 4
+
+    zn_num_var[:] = zn_num
+    vacuum_sector = np.zeros(sc_vacuum_num + 1, dtype=int)
+    vacuum_sector[0] = INT_UNUSED
+    de_view_tab = INT_UNUSED * np.ones(de_view_size, dtype=int)
+    de_view_tab_var[:] = de_view_tab
+    de_view_size_var[:] = de_view_size
+    de_view_base = INT_UNUSED * np.ones(de_grps + 1, dtype=int)
+    de_view_base_var[:] = de_view_base
+    sc_plasma_num_var[:] = sc_plasma_num
+    sc_target_num_var[:] = sc_target_num
+    sc_wall_num_var[:] = sc_wall_num
+    sc_exit_num_var[:] = sc_exit_num
+    sc_diagnostic_grps_var[:] = sc_diagnostic_grps
+    sc_diag_max_bins_var[:] = sc_diag_max_bins
+    sc_vacuum_num_var[:] = sc_vacuum_num
+
+    #target_temperature = np.zeros(sc_target_num+1) # ask
+    Twall = 300 * 1.380649e-23
+    target_temperature = Twall*np.ones(sc_target_num+1)
+    target_temperature[0]=DBL_UNUSED
+    target_temperature_var[:] = target_temperature
+
+    wall_recyc_coef = np.zeros(sc_wall_num + 1)
+    wall_recyc_coef[0] = DBL_UNUSED
+    wall_recyc_coef_var[:] = wall_recyc_coef
+
+    exit_sector = np.zeros(sc_exit_num + 1, dtype=int)
+    exit_sector[0] = INT_UNUSED
+    exit_sector_var[:] = exit_sector
+
+    vacuum_sector = np.zeros(sc_vacuum_num + 1, dtype=int)
+    wall_sector = np.zeros(sc_wall_num + 1, dtype=int)
+    wall_material = np.zeros(sc_wall_num + 1, dtype=int)
+    wall_temperature = np.zeros(sc_wall_num + 1)
+    wall_recyc_coef = np.zeros(sc_wall_num + 1)
+    vacuum_sector[0] = INT_UNUSED
+    wall_sector[0] = INT_UNUSED
+    wall_material[0] = INT_UNUSED
+    wall_temperature[0] = DBL_UNUSED
+    wall_recyc_coef[0] = DBL_UNUSED
+    vacuum_sector_var[:] = vacuum_sector
+    wall_sector_var[:] = wall_sector
+    wall_material_var[:] = wall_material
+    wall_temperature_var[:] = wall_temperature
+    wall_recyc_coef_var[:] = wall_recyc_coef
+
+    recyc_coef = 0.99
+    target_recyc_coef = recyc_coef * np.ones(sc_target_num + 1);
+    target_recyc_coef[0] = DBL_UNUSED
+    target_recyc_coef_var[:] = target_recyc_coef
+
+    target_material = 4 * np.ones(sc_target_num + 1, dtype=int)
+    target_material[0] = INT_UNUSED
+    target_material_var[:] = target_material
+
+    zone_type_num = np.zeros(4, dtype=int)
+    zone_type_num[1] = Nplasma
+    zone_type_num[2] = 1
+    zone_type_num_var[:] = zone_type_num
+
+    detector_name = [STR_UNUSED] * (de_grps + 1)
+    detector_num_views = INT_UNUSED * np.ones(shape=de_grps + 1, dtype=int)
+    detector_var = INT_UNUSED * np.ones(de_grps + 1, dtype=int)
+    detector_tab_index = INT_UNUSED * np.ones(de_grps + 1, dtype=int)
+    detector_min = DBL_UNUSED * np.ones(de_grps + 1)
+    detector_delta = DBL_UNUSED * np.ones(de_grps + 1)
+    detector_spacing = INT_UNUSED * np.ones(de_grps + 1, dtype=int)
+    de_view_points = DBL_UNUSED * np.ones([detector_total_views + 1, 2, 3])
+    de_view_algorithm = INT_UNUSED * np.ones(detector_total_views + 1, dtype=int)
+    de_view_halfwidth = DBL_UNUSED * np.ones(detector_total_views + 1)
+    de_zone_frags = np.zeros(de_zone_frags_ind)
+    de_zone_frags_start = np.zeros(detector_total_views + 1, dtype=int)
+    de_zone_frags_num = np.zeros(detector_total_views + 1, dtype=int)
+    de_zone_frags_zones = np.zeros(de_zone_frags_ind)
+    de_zone_frags_zones[:] = 4
+    de_zone_frags_zones[0] = INT_UNUSED
+    de_zone_frags_min_zn = np.zeros(detector_total_views + 1, dtype=int)
+    de_zone_frags_max_zn = np.zeros(detector_total_views + 1, dtype=int)
+    detector_num_views_var[:] = detector_num_views
+    detector_var_var[:] = detector_var
+    detector_tab_index_var[:] = detector_tab_index
+    detector_min_var[:] = detector_min
+    detector_delta_var[:] = detector_delta
+    detector_spacing_var[:] = detector_spacing
+    detector_total_views_var[:] = detector_total_views
+    de_view_points_var[:] = de_view_points
+    de_view_algorithm_var[:] = de_view_algorithm
+    de_view_halfwidth_var[:] = de_view_halfwidth
+    de_zone_frags_var[:] = de_zone_frags
+    de_zone_frags_start_var[:] = de_zone_frags_start
+    de_zone_frags_num_var[:] = de_zone_frags_num
+    de_zone_frags_zones_var[:] = de_zone_frags_zones
+    de_zone_frags_min_zn_var[:] = de_zone_frags_min_zn
+    de_zone_frags_max_zn_var[:] = de_zone_frags_max_zn
+    diagnostic_num_sectors = np.array([INT_UNUSED, Nwall, Nwall, Nwall])
+    diagnostic_var = np.array([INT_UNUSED, 0, 1, 2])
+    diagnostic_tab_index = np.array([INT_UNUSED, 0, 4, 4])
+    diagnostic_spacing = np.array([INT_UNUSED, 0, 2, 1])
+    diagnostic_grp_base = np.array([INT_UNUSED, 0, Nwall, 2 * Nwall])
+    diagnostic_min = np.array([DBL_UNUSED, 0, -45.5803383244769, 0.174532925199433])
+    diagnostic_delta = np.array([DBL_UNUSED, 0, 2.30258509299405, 0.349065850398866])
+    diagnostic_num_sectors_var[:] = diagnostic_num_sectors
+    diagnostic_var_var[:] = diagnostic_var
+    diagnostic_tab_index_var[:] = diagnostic_tab_index
+    diagnostic_min_var[:] = diagnostic_min
+    diagnostic_delta_var[:] = diagnostic_delta
+    diagnostic_spacing_var[:] = diagnostic_spacing
+    diagnostic_grp_base_var[:] = diagnostic_grp_base
+    sc_diag_size = 3 * Nwall
+    sc_diag_size_var[:] = sc_diag_size
+    de_grps_var[:] = de_grps
+    de_max_bins_var[:] = de_max_bins
+    de_zone_frags_dim = 100
+    de_zone_frags_dim_var[:] = de_zone_frags_dim
+    de_zone_frags_size_var[:] = de_zone_frags_size
 
     diagnostic_grp_name_var[0, :] = "UNUSED                                  "
     diagnostic_grp_name_var[1, :] = "Wall and Target Counts                  "
