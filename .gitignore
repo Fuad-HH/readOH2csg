@@ -3,6 +3,7 @@ build/
 .idea/
 *config.sh
 check-format.sh
+geometry.nc
 
 # Compiled objects and modules
 *.a

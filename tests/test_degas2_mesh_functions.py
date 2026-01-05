@@ -3,6 +3,7 @@ from pathlib import Path
 import numpy as np
 
 from omegah2csg import OmegaHMesh
+from omegah2csg import convert2degas2
 import netCDF4 as nc
 
 parent_dir = Path(__file__).resolve().parent
@@ -87,6 +88,10 @@ def test_get_cell_centroids():
         assert np.isclose(centroids[i*2+0], nc_centroids[i, 0], atol=coord_tol), "Centroid x mismatch for face {i}"
         assert np.isclose(centroids[i*2+1], nc_centroids[i, 2], atol=coord_tol), "Centroid y mismatch for face {i}"
 
+def test_get_number_of_edges_inside_wall():
+    with OmegaHMesh(with_boundary_layer_file) as mesh:
+        number_of_edges_inside_wall = mesh.get_number_of_edges_inside_wall()
+        #assert number_of_edges_inside_wall == 28917 - get_num_of_boundary_edges(mesh)
 
 
 def test_convert2degas2():
@@ -98,4 +103,6 @@ def test_convert2degas2():
         surfaece_sectors_works = ref_geometry["surface_sectors"]
         surfidx = abs(sector_surface_works[2])
         assert surfidx == 24599, "suridx must be 24599 for this geometry"
+
+    #convert2degas2(with_boundary_layer_file)
 

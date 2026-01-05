@@ -50,6 +50,11 @@ _dll.capi_get_cell_volumes.argtypes = [OmegaHMeshPointer, ndpointer(c_double), c
 
 _dll.capi_get_cell_centroids.argtypes = [OmegaHMeshPointer, ndpointer(c_double), c_int]
 
+_dll.capi_get_edge_coordinates.argtypes = [OmegaHMeshPointer, ndpointer(c_double), c_int]
+
+_dll.capi_get_number_of_edges_inside_wall.argtypes = [OmegaHMeshPointer]
+_dll.capi_get_number_of_edges_inside_wall.restype = c_int
+
 
 class OmegaHMesh:
     """
@@ -187,5 +192,26 @@ class OmegaHMesh:
             return cell_centroids
         except Exception as exception:
             raise RuntimeError(f"Error getting cell centroids: {exception}")
+
+    def get_edge_coordinates(self) -> np.ndarray:
+        if not kokkos_runtime.is_running():
+            raise RuntimeError("Kokkos not running...")
+
+        try:
+            n_edges = self.num_entities(1)
+            edge_coordinates = np.empty(n_edges*4, dtype=np.float64)
+            _dll.capi_get_edge_coordinates(self.mesh, edge_coordinates, n_edges*4)
+            return edge_coordinates
+        except Exception as exception:
+            raise RuntimeError(f"Error getting edge coordinates: {exception}")
+
+    def get_number_of_edges_inside_wall(self) -> int:
+        if not kokkos_runtime.is_running():
+            raise RuntimeError("Kokkos not running...")
+
+        try:
+            return _dll.capi_get_number_of_edges_inside_wall(self.mesh)
+        except Exception as exception:
+            raise RuntimeError(f"Error getting number of edges: {exception}")
 
 

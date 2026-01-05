@@ -15,6 +15,7 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', tol=1e-10):
         cell_bounding_boxes = mesh.get_cell_bounding_boxes()
         tri_volumes = mesh.get_cell_volumes()
         centroids = mesh.get_cell_centroids()
+        edge_coordinates = mesh.get_edge_coordinates()
 
     num_tri = face2edge_map.shape[0] # ncells
     num_boundary_face = boundary_face_flag.sum()
@@ -204,15 +205,14 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', tol=1e-10):
     zone_volume_var[:] = zone_volume
 
     # in note ncells = Ntri = Nplasma + 2*Nwall; ncells = ncells = Ntri+2*Nwall
-    ncells = num_tri + num_boundary_face
-    cells = np.zeros([ncells + 1, 4], dtype=int)
+    cells = np.zeros([num_tri + 1, 4], dtype=int) # ask
     cells[0, 0:4] = [1, num_wall_edges, num_wall_edges, 0]
     cells[1:num_tri + 1, 0] = 1 + num_wall_edges + 5 * np.array(range(0, num_tri), dtype=int)
     cells[1:num_tri + 1, 1] = 3
     cells[1:num_tri + 1, 2] = 5
     cells[1:Nplasma + 1, 3] = np.array(range(1, Nplasma + 1), dtype=int)
     cells[Nplasma + 1:, 3] = Nplasma + 1
-    ncells_var[:] = ncells
+    ncells_var[:] = num_tri
     cells_var[:] = cells
 
     surfaces = np.zeros([num_total_surface, 2, 2], dtype=int)
@@ -223,6 +223,13 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', tol=1e-10):
     # these two are slightly different from notebook
     zone_center[Nplasma, 0] = np.average(centroids[0:Nplasma*2:2])
     zone_center[Nplasma, 2] = np.average(centroids[1:Nplasma*2:2])
+    zone_center_var[:] = zone_center
+
+    surface_points = np.zeros([num_total_surface, 2, 3])
+    surface_points[0:num_edge, :, 0] = edge_coordinates[0:num_edge*4:2].reshape((num_edge, 2))
+    surface_points[0:num_edge, :, 2] = edge_coordinates[1:num_edge*4:2].reshape((num_edge, 2))
+    surface_points_var[:] = surface_points
+
 
     diagnostic_grp_name_var[0, :] = "UNUSED                                  "
     diagnostic_grp_name_var[1, :] = "Wall and Target Counts                  "
@@ -231,5 +238,6 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', tol=1e-10):
     detector_name_var[
         :] = "UNUSED                                                                                              "
 
+    root_g.sync()
     root_g.close()
 

@@ -62,6 +62,10 @@ bool capi_get_mesh_int_tag_array(OmegaHMesh oh_mesh, int dim, const char *name,
 void capi_get_cell_bounding_boxes(OmegaHMesh oh_mesh, double *bbox, int size);
 void capi_get_cell_volumes(OmegaHMesh oh_mesh, double *volumes, int size);
 void capi_get_cell_centroids(OmegaHMesh oh_mesh, double *centroids, int size);
+void capi_get_edge_coordinates(OmegaHMesh oh_mesh, double *edge_coords,
+                               int size);
+// used for test
+int capi_get_number_of_edges_inside_wall(OmegaHMesh oh_mesh);
 
 #ifdef __cplusplus
 }

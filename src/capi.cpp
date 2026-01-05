@@ -377,3 +377,64 @@ extern "C" void capi_get_cell_centroids(OmegaHMesh oh_mesh, double *centroids,
     centroids[i] = centroids_v_host[i];
   }
 }
+
+extern "C" void capi_get_edge_coordinates(OmegaHMesh oh_mesh,
+                                          double *edge_coords, int size) {
+  auto mesh = reinterpret_cast<Omega_h::Mesh *>(oh_mesh.pointer);
+  const int n_edges = mesh->nedges();
+  int array_size = 4 * n_edges; // each edge has 4 coordinates (x0, y0, x1, y1)
+
+  if (size != array_size) {
+    throw std::runtime_error(
+        "Error: size of edge_coords array does not match number of edges * 4.");
+  }
+
+  const auto coords = mesh->coords();
+  const auto edge2node = mesh->ask_down(Omega_h::EDGE, Omega_h::VERT).ab2b;
+
+  Omega_h::Write<double> edge_coords_v(array_size, "edge_coords_v");
+  auto compute_edge_coords = OMEGA_H_LAMBDA(const Omega_h::LO edge) {
+    const auto v0 = Omega_h::get_vector<2>(coords, edge2node[edge * 2 + 0]);
+    const auto v1 = Omega_h::get_vector<2>(coords, edge2node[edge * 2 + 1]);
+
+    edge_coords_v[edge * 4 + 0] = v0[0];
+    edge_coords_v[edge * 4 + 1] = v0[1];
+    edge_coords_v[edge * 4 + 2] = v1[0];
+    edge_coords_v[edge * 4 + 3] = v1[1];
+  };
+  Omega_h::parallel_for(n_edges, compute_edge_coords, "compute_edge_coords");
+
+  Omega_h::HostWrite edge_coords_v_host(edge_coords_v);
+  for (int i = 0; i < array_size; ++i) {
+    edge_coords[i] = edge_coords_v_host[i];
+  }
+}
+
+extern "C" int capi_get_number_of_edges_inside_wall(OmegaHMesh oh_mesh) {
+  auto mesh = reinterpret_cast<Omega_h::Mesh *>(oh_mesh.pointer);
+  if (!mesh->has_tag(Omega_h::FACE, "offset_face")) {
+    throw std::runtime_error(
+        "Error: mesh does not have 'offset_face' tag on faces.");
+  }
+
+  const auto offset_face_tag =
+      mesh->get_tag<Omega_h::LO>(Omega_h::FACE, "offset_face")->array();
+
+  Omega_h::LO num_edges_inside_wall = 0;
+  const auto edge2face = mesh->ask_up(Omega_h::EDGE, Omega_h::FACE).ab2b;
+  const auto edge2face_offset = mesh->ask_up(Omega_h::EDGE, Omega_h::FACE).a2ab;
+
+  auto count_edges = KOKKOS_LAMBDA(const Omega_h::LO &edge, int &count) {
+    const int n_adj_faces = edge2face_offset[edge + 1] - edge2face_offset[edge];
+    if (n_adj_faces > 1) {
+      if (offset_face_tag[edge2face[edge2face_offset[edge]]] == 0 &&
+          offset_face_tag[edge2face[edge2face_offset[edge] + 1]] == 0) {
+        count += 1;
+      }
+    }
+  };
+  Kokkos::parallel_reduce("count edges", mesh->nedges(), count_edges,
+                          num_edges_inside_wall);
+
+  return num_edges_inside_wall;
+}
