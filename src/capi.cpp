@@ -438,3 +438,31 @@ extern "C" int capi_get_number_of_edges_inside_wall(OmegaHMesh oh_mesh) {
 
   return num_edges_inside_wall;
 }
+
+extern "C" void capi_get_edge_to_face_connectivity(OmegaHMesh oh_mesh,
+                                                   int *faces, int size) {
+  auto mesh = reinterpret_cast<Omega_h::Mesh *>(oh_mesh.pointer);
+  const int n_edges = mesh->nedges();
+  if (size != n_edges * 2) {
+    throw std::runtime_error(
+        "Error: size of faces array does not match number of edges * 2.");
+  }
+
+  const auto edge2face_adj = mesh->ask_up(Omega_h::EDGE, Omega_h::FACE);
+  const auto edge2face = Omega_h::HostRead(edge2face_adj.ab2b);
+  const auto edge2face_offset = Omega_h::HostRead(edge2face_adj.a2ab);
+
+  for (int edge = 0; edge < n_edges; ++edge) {
+    const int n_adj_faces = edge2face_offset[edge + 1] - edge2face_offset[edge];
+    assert(n_adj_faces == 1 || n_adj_faces == 2);
+
+    // first adjacent face
+    faces[edge * 2 + 0] = edge2face[edge2face_offset[edge]];
+    // second adjacent face
+    if (n_adj_faces == 2) {
+      faces[edge * 2 + 1] = edge2face[edge2face_offset[edge] + 1];
+    } else {
+      faces[edge * 2 + 1] = -1; // no second adjacent face
+    }
+  }
+}

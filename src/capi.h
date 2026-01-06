@@ -67,6 +67,9 @@ void capi_get_edge_coordinates(OmegaHMesh oh_mesh, double *edge_coords,
 // used for test
 int capi_get_number_of_edges_inside_wall(OmegaHMesh oh_mesh);
 
+void capi_get_edge_to_face_connectivity(OmegaHMesh oh_mesh, int *faces,
+                                        int size);
+
 #ifdef __cplusplus
 }
 #endif

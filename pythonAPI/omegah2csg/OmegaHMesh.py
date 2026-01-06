@@ -55,6 +55,8 @@ _dll.capi_get_edge_coordinates.argtypes = [OmegaHMeshPointer, ndpointer(c_double
 _dll.capi_get_number_of_edges_inside_wall.argtypes = [OmegaHMeshPointer]
 _dll.capi_get_number_of_edges_inside_wall.restype = c_int
 
+_dll.capi_get_edge_to_face_connectivity.argtypes = [OmegaHMeshPointer, ndpointer(c_int), c_int]
+
 
 class OmegaHMesh:
     """
@@ -214,4 +216,16 @@ class OmegaHMesh:
         except Exception as exception:
             raise RuntimeError(f"Error getting number of edges: {exception}")
 
+    def get_edge_to_face_map(self) -> np.ndarray:
+        if not kokkos_runtime.is_running():
+            raise RuntimeError("Kokkos not running...")
 
+        try:
+            nedges = self.num_entities(1)
+            edge_map_size = nedges * 2
+            edge_to_face_map = np.empty(edge_map_size, dtype=np.int32)
+            _dll.capi_get_edge_to_face_map(self.mesh, edge_to_face_map, edge_map_size)
+            return edge_to_face_map.reshape((nedges, 2))
+
+        except Exception as exception:
+            raise RuntimeError(f"Error getting edge to face map: {exception}")
