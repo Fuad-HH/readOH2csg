@@ -10,6 +10,10 @@
 
 #include <Omega_h_mesh.hpp>
 
+Omega_h::LOs insert_inward_sign_with_boundary_edges(
+    Omega_h::Mesh mesh, Omega_h::LOs boundary_edges,
+    Kokkos::View<int *[6]> face_connectivity);
+
 Kokkos::View<int *[6]>
 calculate_face_connectivity(Omega_h::Mesh mesh,
                             Kokkos::View<double *[6]> edge_coefficients_v,

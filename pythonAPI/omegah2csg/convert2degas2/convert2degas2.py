@@ -48,7 +48,8 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', tol=1e-10):
     Nedge = edge_coefficients.shape[0]
     Nsurf_tot = Nedge + 2*Ntri # each triangle has two cut surfaces nSurf_tot, nsurfaces
     Nwall = boundary_edge_ids.shape[0]
-    nboundaries = Nwall + 5*Ntri # do not know why
+    # universal cells has Nwall boundaries and each triangle has 3 sides and 2 cut surfaces
+    nboundaries = Nwall + 5*Ntri
     nneighbors = Nedge*2
     nsectors = 2 * Nwall
 
@@ -228,9 +229,11 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', tol=1e-10):
     zone_volume[Nplasma] = total_volume
     zone_volume_var[:] = zone_volume
 
+    # ------------------------- Cells -------------------------------------- #
     # in note ncells = Ntri = Nplasma + 2*Nwall; ncells = ncells = Ntri+2*Nwall
     cells = np.zeros([Ntri + 1, 4], dtype=int) # ask
     cells[0, 0:4] = [1, Nwall, Nwall, 0]
+    # todo: fix this indexing
     cells[1:Ntri + 1, 0] = 1 + Nwall + 5 * np.array(range(0, Ntri), dtype=int)
     cells[1:Ntri + 1, 1] = 3
     cells[1:Ntri + 1, 2] = 5
@@ -239,7 +242,8 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', tol=1e-10):
     ncells_var[:] = Ntri
     cells_var[:] = cells
 
-    surfaces = np.zeros([Nsurf_tot, 2, 2], dtype=int) # ask
+    # ------------------------ Surfaces ------------------------------------ #
+    surfaces = np.zeros([Nsurf_tot, 2, 2], dtype=int)
 
     zone_center = np.zeros([Nplasma + 1, 3])
     zone_center[0:Nplasma, 0] = centroids[0:Nplasma*2:2]
@@ -266,7 +270,9 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', tol=1e-10):
         # todo check this: we may have different indices
         boundaries[bdy_start + 3:bdy_start + 5] = [cut_start + 1, cut_start + 2]
 
-    # ask what to do with 0:Nwall
+    # fill edges of the universal cell
+    boundaries[0:Nwall] = boundary_edge_ids
+
     boundaries_var[:] = boundaries
 
     # ----------------------- Neighbors (Edge Adjacency Info) ----------------- #
@@ -280,12 +286,13 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', tol=1e-10):
     diagnostic_sector_tab = np.zeros(sc_diag_size, dtype=int)
 
     sector_type_pointer[0, :] = INT_UNUSED / 2
+    # fixme after surface, face, etc.
     for i in range(0, Nwall):
         sector_type_pointer[2*i+1,1] = i+1
         sector_type_pointer[2*i+2,2] = i+1
         sector_type_pointer[2*i+2,5:8] = i+1
 
-        diagnostic_sector_tab[i] = 2 * i + 2 #ask
+        diagnostic_sector_tab[i] = 2 * i + 2
         diagnostic_sector_tab[Nwall + i] = 2 * i + 2
         diagnostic_sector_tab[2 * Nwall + i] = 2 * i + 2
 

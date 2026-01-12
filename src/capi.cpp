@@ -45,6 +45,11 @@ extern "C" void capi_get_all_geometry_info(OmegaHMesh oh_mesh, int n_edges,
   Kokkos::View<int *[6]> face_connectivity_view = calculate_face_connectivity(
       *mesh, edge_coefficients_view, print_debug, tol);
 
+  // insert sign with boundary edge ids facing inward
+  Omega_h::LOs boundary_edges_ids_with_sign =
+      insert_inward_sign_with_boundary_edges(*mesh, boundary_edge_ids,
+                                             face_connectivity_view);
+
   // copy edge coefficients to output array
   auto host_edge_coefficients =
       Kokkos::create_mirror_view(edge_coefficients_view);
@@ -56,10 +61,10 @@ extern "C" void capi_get_all_geometry_info(OmegaHMesh oh_mesh, int n_edges,
   }
 
   // copy boundary edge ids to output array
-  auto host_boundary_edge_ids =
-      Omega_h::HostRead<Omega_h::LO>(boundary_edge_ids);
-  for (int i = 0; i < boundary_edge_ids.size(); ++i) {
-    boundary_edges[i] = host_boundary_edge_ids[i];
+  auto host_boundary_edge_ids_with_sign =
+      Omega_h::HostRead<Omega_h::LO>(boundary_edges_ids_with_sign);
+  for (int i = 0; i < boundary_edges_ids_with_sign.size(); ++i) {
+    boundary_edges[i] = host_boundary_edge_ids_with_sign[i];
   }
 
   // copy face connectivity to output array

@@ -700,3 +700,36 @@ std::pair<int, int> findTwoSmallestIndices(const std::vector<int> &vec) {
 
   return {min1Index, min2Index};
 }
+
+Omega_h::LOs insert_inward_sign_with_boundary_edges(
+    Omega_h::Mesh mesh, Omega_h::LOs boundary_edges,
+    Kokkos::View<int *[6]> face_connectivity) {
+  const auto edge2face = mesh.ask_up(Omega_h::EDGE, Omega_h::FACE);
+  const auto edge2faceFace = edge2face.ab2b;
+  const auto edge2faceOffsets = edge2face.a2ab;
+
+  Omega_h::Write<Omega_h::LO> signed_boundary_edges(boundary_edges.size(), 0,
+                                                    "signed boundary edges");
+
+  auto get_inward_sign = OMEGA_H_LAMBDA(const int i) {
+    const Omega_h::LO edge_id = boundary_edges[i];
+    const int num_faces =
+        edge2faceOffsets[edge_id + 1] - edge2faceOffsets[edge_id];
+    OMEGA_H_CHECK_PRINTF(
+        num_faces == 1,
+        "Boundary edge %d is connected to %d faces, expected 1\n", edge_id,
+        num_faces);
+
+    const Omega_h::LO face_id = edge2faceFace[edge2faceOffsets[edge_id]];
+    for (int j = 0; j < 3; ++j) {
+      if (face_connectivity(face_id, 2 * j) == edge_id) {
+        signed_boundary_edges[i] =
+            edge_id * face_connectivity(face_id, 2 * j + 1);
+        break;
+      }
+    }
+  };
+  Omega_h::parallel_for(boundary_edges.size(), get_inward_sign);
+
+  return signed_boundary_edges;
+}
