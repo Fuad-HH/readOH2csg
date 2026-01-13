@@ -471,3 +471,38 @@ extern "C" void capi_get_edge_to_face_connectivity(OmegaHMesh oh_mesh,
     }
   }
 }
+
+extern "C" void capi_get_wall_edge_ids(OmegaHMesh oh_mesh, int *edge_ids,
+                                       int size) {
+  auto mesh = reinterpret_cast<Omega_h::Mesh *>(oh_mesh.pointer);
+  const Omega_h::LOs wall_edge_ids = get_wall_edge_ids(mesh);
+  auto host_wall_edge_ids = Omega_h::HostRead(wall_edge_ids);
+
+  if (size != wall_edge_ids.size()) {
+    throw std::runtime_error(
+        "Error: size of edge_ids array does not match number of wall edges.");
+  }
+
+  for (int i = 0; i < wall_edge_ids.size(); ++i) {
+    edge_ids[i] = host_wall_edge_ids[i];
+  }
+}
+
+extern "C" void capi_get_wall_adjacent_triangles(OmegaHMesh oh_mesh,
+                                                 int *triangles, int size) {
+  auto mesh = reinterpret_cast<Omega_h::Mesh *>(oh_mesh.pointer);
+
+  Omega_h::LOs wall_adjacent_triangles = get_wall_adjacent_triangles(mesh);
+  printf("Number of wall adjacent triangles: %d\n",
+         wall_adjacent_triangles.size());
+  if (size != wall_adjacent_triangles.size()) {
+    throw std::runtime_error("Error: size of triangles array does not match "
+                             "number of wall adjacent triangles.");
+  }
+
+  const auto host_wall_adjacent_triangles =
+      Omega_h::HostRead(wall_adjacent_triangles);
+  for (int i = 0; i < wall_adjacent_triangles.size(); ++i) {
+    triangles[i] = host_wall_adjacent_triangles[i];
+  }
+}

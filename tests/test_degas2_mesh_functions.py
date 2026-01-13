@@ -104,5 +104,16 @@ def test_convert2degas2():
         surfidx = abs(sector_surface_works[2])
         assert surfidx == 24599, "suridx must be 24599 for this geometry"
 
+def test_get_wall_adjacent_triangles():
+    with OmegaHMesh(with_boundary_layer_file) as mesh:
+        wall_adjacent_triangles = mesh.get_wall_adjacent_triangles()
+        assert len(wall_adjacent_triangles) > 0
+
+        plasma_side = wall_adjacent_triangles[0::2]
+        target_side = wall_adjacent_triangles[1::2]
+        print("Wall adjacent triangles:")
+        print("Plasma side:", plasma_side.tolist())
+        print("Target side:", target_side.tolist())
+
     #convert2degas2(with_boundary_layer_file)
 

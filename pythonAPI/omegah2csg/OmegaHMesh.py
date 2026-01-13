@@ -57,6 +57,10 @@ _dll.capi_get_number_of_edges_inside_wall.restype = c_int
 
 _dll.capi_get_edge_to_face_connectivity.argtypes = [OmegaHMeshPointer, ndpointer(c_int), c_int]
 
+_dll.capi_get_wall_adjacent_triangles.argtypes = [OmegaHMeshPointer, ndpointer(c_int), c_int]
+
+_dll.capi_get_wall_edge_ids.argtypes = [OmegaHMeshPointer, ndpointer(c_int), c_int]
+
 
 class OmegaHMesh:
     """
@@ -229,3 +233,32 @@ class OmegaHMesh:
 
         except Exception as exception:
             raise RuntimeError(f"Error getting edge to face map: {exception}")
+
+    def get_wall_edge_ids(self) -> np.ndarray:
+        if not kokkos_runtime.is_running():
+            raise RuntimeError("Kokkos not running...")
+
+        num_first_wall_points = np.sum(self.get_integer_tag_array(0, "isOnWall"))
+        wall_edge_ids = np.empty(2*num_first_wall_points, dtype=np.int32)
+
+        try:
+            _dll.capi_get_wall_edge_ids(self.mesh, wall_edge_ids, num_first_wall_points)
+            return wall_edge_ids
+        except Exception as exception:
+            raise RuntimeError(f"Error getting wall edge ids: {exception}")
+
+    def get_wall_adjacent_triangles(self) -> np.ndarray:
+        if not kokkos_runtime.is_running():
+            raise RuntimeError("Kokkos not running...")
+
+
+        num_first_wall_points = np.sum(self.get_integer_tag_array(0, "isOnWall"))
+        print(f"Wall adjacent triangles: {num_first_wall_points}")
+        wall_adjacent_triangles = np.empty(2*num_first_wall_points, dtype=np.int32)
+
+        try:
+            _dll.capi_get_wall_adjacent_triangles(self.mesh, wall_adjacent_triangles, 2*num_first_wall_points)
+            return wall_adjacent_triangles
+        except Exception as exception:
+            raise RuntimeError(f"Error getting wall adjacent triangles: {exception}")
+

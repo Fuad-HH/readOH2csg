@@ -10,6 +10,10 @@
 
 #include <Omega_h_mesh.hpp>
 
+Omega_h::LOs get_wall_edge_ids(Omega_h::Mesh *mesh);
+// plasma face, offset face, ...
+Omega_h::LOs get_wall_adjacent_triangles(Omega_h::Mesh *mesh);
+
 Omega_h::LOs insert_inward_sign_with_boundary_edges(
     Omega_h::Mesh mesh, Omega_h::LOs boundary_edges,
     Kokkos::View<int *[6]> face_connectivity);

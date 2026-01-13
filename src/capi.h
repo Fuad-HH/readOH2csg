@@ -69,6 +69,9 @@ int capi_get_number_of_edges_inside_wall(OmegaHMesh oh_mesh);
 
 void capi_get_edge_to_face_connectivity(OmegaHMesh oh_mesh, int *faces,
                                         int size);
+void capi_get_wall_adjacent_triangles(OmegaHMesh oh_mesh, int *triangles,
+                                      int size);
+void capi_get_wall_edge_ids(OmegaHMesh oh_mesh, int *edge_ids, int size);
 
 #ifdef __cplusplus
 }

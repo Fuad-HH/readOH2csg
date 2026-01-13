@@ -9,6 +9,7 @@ DBL_UNUSED = 2.0e30
 STR_UNUSED = "UNUSED                                                                                              "
 
 
+# first one is on positive side
 def sort_edge_to_face_map(edge_to_face_map, face2edge_map) -> np.ndarray:
     nedges = edge_to_face_map.shape[0]
 
@@ -17,14 +18,14 @@ def sort_edge_to_face_map(edge_to_face_map, face2edge_map) -> np.ndarray:
         for j in range(0, 3):
             edge = face2edge_map[first_face, 2*j]
             if edge == i:
-                sign = face2edge_map[first_face, 2*j+1]
-                if sign == -1: # then swap
+                first_face_sign = face2edge_map[first_face, 2*j+1]
+                if first_face_sign == -1: # then swap
                     edge_to_face_map[i,0], edge_to_face_map[i,1] = edge_to_face_map[i,1], edge_to_face_map[i,0]
                     continue
-                if sign == 1:
+                if first_face_sign == 1:
                     continue
                 else:
-                    raise RuntimeError(f"Sign cannon be {sign}")
+                    raise RuntimeError(f"Sign cannon be {first_face_sign}")
 
     return edge_to_face_map
 
@@ -40,7 +41,9 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', tol=1e-10):
         centroids = mesh.get_cell_centroids()
         edge_coordinates = mesh.get_edge_coordinates()
         edge_to_face_map = mesh.get_edge_to_face_map()
+        # sorted like e0+, e0-, e1+, e1-, ...
         edge_to_face_map_sorted = sort_edge_to_face_map(edge_to_face_map, face2edge_map)
+        wall_nodes_flag = mesh.get_integer_tag_array(0, "isOnWall")
 
     Ntri = face2edge_map.shape[0] # ncells
     num_boundary_face = boundary_face_flag.sum()
@@ -51,7 +54,8 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', tol=1e-10):
     # universal cells has Nwall boundaries and each triangle has 3 sides and 2 cut surfaces
     nboundaries = Nwall + 5*Ntri
     nneighbors = Nedge*2
-    nsectors = 2 * Nwall
+    nsectors = num_boundary_face
+    num_first_wall_points = np.sum(wall_nodes_flag)
 
     # FIXME NETCDF_CLASSIC is limited to 2GB
     root_g = netCDF4.Dataset(netcdf_filename, mode='w', format='NETCDF4_CLASSIC')
@@ -121,7 +125,7 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', tol=1e-10):
     surface_points_var = root_g.createVariable("surface_points", "f8", ("surface_ind", "neg_pos", "vector",))
     zn_num_var = root_g.createVariable("zn_num", "i4")
     zone_type_num_var = root_g.createVariable("zone_type_num", "i4", ("zone_type_ind",))
-    zone_type_var = root_g.createVariable("zone_type", "i4", ("zone_ind",)) # ask
+    zone_type_var = root_g.createVariable("zone_type", "i4", ("zone_ind",))
     zone_index_var = root_g.createVariable("zone_index", "i4", ("zone_ind", "zone_index_ind",))
     zone_index_min_var = root_g.createVariable("zone_index_min", "i4", ("zone_index_ind",))
     zone_index_max_var = root_g.createVariable("zone_index_max", "i4", ("zone_index_ind",))
@@ -232,31 +236,18 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', tol=1e-10):
     # ------------------------- Cells -------------------------------------- #
     # in note ncells = Ntri = Nplasma + 2*Nwall; ncells = ncells = Ntri+2*Nwall
     cells = np.zeros([Ntri + 1, 4], dtype=int) # ask
-    cells[0, 0:4] = [1, Nwall, Nwall, 0]
-    # todo: fix this indexing
-    cells[1:Ntri + 1, 0] = 1 + Nwall + 5 * np.array(range(0, Ntri), dtype=int)
+    cells[0, 0:4] = [0, Nwall, Nwall, 0]
+
+    cells[1:Ntri + 1, 0] = Nwall + 5 * np.array(range(0, Ntri), dtype=int)
     cells[1:Ntri + 1, 1] = 3
     cells[1:Ntri + 1, 2] = 5
+
+    # zone index for plasma is unique
     cells[1:Nplasma + 1, 3] = np.array(range(1, Nplasma + 1), dtype=int)
     cells[Nplasma + 1:, 3] = Nplasma + 1
+
     ncells_var[:] = Ntri
     cells_var[:] = cells
-
-    # ------------------------ Surfaces ------------------------------------ #
-    surfaces = np.zeros([Nsurf_tot, 2, 2], dtype=int)
-
-    zone_center = np.zeros([Nplasma + 1, 3])
-    zone_center[0:Nplasma, 0] = centroids[0:Nplasma*2:2]
-    zone_center[0:Nplasma, 1] = centroids[1:Nplasma*2:2]
-    # these two are slightly different from notebook
-    zone_center[Nplasma, 0] = np.average(centroids[0:Nplasma*2:2])
-    zone_center[Nplasma, 2] = np.average(centroids[1:Nplasma*2:2])
-    zone_center_var[:] = zone_center
-
-    surface_points = np.zeros([Nsurf_tot, 2, 3])
-    surface_points[0:Nedge, :, 0] = edge_coordinates[0:Nedge*4:2].reshape((Nedge, 2))
-    surface_points[0:Nedge, :, 2] = edge_coordinates[1:Nedge*4:2].reshape((Nedge, 2))
-    surface_points_var[:] = surface_points
 
     # ------------------------- Boundaries ------------------------------------ #
     boundaries = np.zeros(nboundaries, dtype=int)
@@ -275,12 +266,99 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', tol=1e-10):
 
     boundaries_var[:] = boundaries
 
+    # ------------------------ Surfaces ------------------------------------ #
+    surfaces = np.zeros([Nsurf_tot, 2, 2], dtype=int)
+    # pointers
+    surfaces[:Nedge, 0, 0] = 1+ 2*np.arange(Nedge)
+    surfaces[:Nedge, 0, 1] = 2*np.arange(Nedge)
+    # number of faces
+    for i in range(0, Nedge):
+        pos_face = edge_to_face_map_sorted[i,0]
+        neg_face = edge_to_face_map_sorted[i,1]
+        if neg_face == -1 and pos_face != -1:
+            surfaces[i, 1, 0] = 0
+            surfaces[i, 1, 1] = 1
+        elif pos_face == -1 and neg_face != -1:
+            surfaces[i, 1, 1] = 0
+            surfaces[i, 1, 0] = 1
+        elif neg_face != -1 and pos_face == -1:
+            surfaces[i, 1, :] = 1
+        else:
+            raise RuntimeError(f"pos_face={pos_face}, neg_face={neg_face} is not correct!")
+
+    # may not be needed
+    for i in range(Nedge, Nsurf_tot):
+        # Cut surfaces are not faces at all
+        surfaces[i, 0, :] = surfaces[i - 1, 0, :]
+        surfaces[i, 1, :] = 0
+
+    surfaces_var[:] = surfaces
+
+
     # ----------------------- Neighbors (Edge Adjacency Info) ----------------- #
     neighbors = np.zeros(nneighbors + 1, dtype=int)
-    # ask
+    neighbors[0:Nedge*2] = edge_to_face_map_sorted.reshape(Nedge*2)
+    neighbors_var[:] = neighbors
 
+    # --------------------- Surface Coefficients ------------------------------ #
+    surface_coeffs = np.zeros([Nsurf_tot, 10])
+    # -b ^ 2 for a cone, -R ^ 2 for a cylinder, -Z0 for a plane
+    surface_coeffs[:Nedge, 0] = edge_coefficients[:, 3]
+    # b = 0 for a cylinder, 1/2 for a plane, and intercept for a cone
+    surface_coeffs[:Nedge, 3] = edge_coefficients[:, 2]
+    # m=1 for cylinder, slope for a cone, and 0 for a plane
+    surface_coeffs[:Nedge, 4] = edge_coefficients[:, 0]
+    surface_coeffs[:Nedge, 5] = edge_coefficients[:, 0]
+    # in notebook np.where(np.logical_or(planecond,cylcond),np.zeros(Nsurfs),-np.ones(Nsurfs))
+    surface_coeffs[:Nedge, 6] = np.where((edge_coefficients[:, 5] > tol) & (edge_coefficients[:, 5] < 1.-tol), -1, 0)
+
+    # Cut faces
+    surface_coeffs[Nedge:Nsurf_tot:2, 0] = -cell_bounding_boxes[1::4]
+    surface_coeffs[Nedge+1:Nsurf_tot:2, 0] = cell_bounding_boxes[3::4]
+    surface_coeffs[Nedge:Nsurf_tot:2, 3] = 1.0
+    surface_coeffs[Nedge+1:Nsurf_tot:2, 3] = -1.0
+
+    surface_coeffs_var[:] = surface_coeffs
+
+    # --------------------- Zones ------------------------------------------ #
+    zone_center = np.zeros([Nplasma + 1, 3])
+    zone_center[0:Nplasma, 0] = centroids[0:Nplasma*2:2]
+    zone_center[0:Nplasma, 1] = centroids[1:Nplasma*2:2]
+    # these two are slightly different from notebook
+    zone_center[Nplasma, 0] = np.average(centroids[0:Nplasma*2:2])
+    zone_center[Nplasma, 2] = np.average(centroids[1:Nplasma*2:2])
+    zone_center_var[:] = zone_center
+
+    zone_type = 2 * np.ones(Nplasma + 1, dtype=int)
+    zone_type[Nplasma] = 3
+    zone_type_var[:] = zone_type
+
+    zone_pointer = np.array(range(1, Nplasma + 2))
+    zone_pointer[-1] = 1
+    zone_pointer_var[:] = zone_pointer
+
+    # ----------------------- Surface Points ------------------------------ #
+    surface_points = np.zeros([Nsurf_tot, 2, 3])
+    surface_points[0:Nedge, :, 0] = edge_coordinates[0:Nedge*4:2].reshape((Nedge, 2))
+    surface_points[0:Nedge, :, 2] = edge_coordinates[1:Nedge*4:2].reshape((Nedge, 2))
+    surface_points_var[:] = surface_points
 
     # -------------------------- Sector ---------------------------------------- #
+    sectors = np.zeros(nsectors + 1, dtype=int)
+    sectors[0] = INT_UNUSED
+
+    sc_plasma_num = num_first_wall_points
+    sc_target_num = num_first_wall_points
+    plasma_sector = np.zeros(sc_plasma_num + 1, dtype=int)
+    target_sector = np.zeros(sc_target_num + 1, dtype=int)
+    plasma_sector[0] = INT_UNUSED
+    target_sector[0] = INT_UNUSED
+    plasma_sector[1:] = 1. + 2*np.arange(sc_plasma_num)
+    target_sector[1:] = 2. + 2*np.arange(sc_target_num)
+    plasma_sector_var[:] = plasma_sector
+    target_sector_var[:] = target_sector
+
+
     sector_type_pointer = INT_UNUSED * np.ones([nsectors + 1, 17], dtype=int)
     sc_diag_size = 3 * Nwall # ask
     diagnostic_sector_tab = np.zeros(sc_diag_size, dtype=int)
@@ -298,6 +376,12 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', tol=1e-10):
 
     sector_type_pointer_var[:] = sector_type_pointer
     diagnostic_sector_tab_var[:] = diagnostic_sector_tab
+
+    sector_strata_segment = np.zeros(nsectors + 1, dtype=int)
+    sector_strata_segment[0] = INT_UNUSED
+    # can be wrong since difference in boundary layer
+    sector_strata_segment[1:nsectors + 1] = sectors[1:nsectors + 1] - 1
+    sector_strata_segment_var[:] = sector_strata_segment
 
     # ----------------------- Unmodified Variables ----------------------------- #
     de_grps = 0

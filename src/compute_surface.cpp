@@ -9,6 +9,97 @@
 #include <Omega_h_for.hpp>
 #include <Omega_h_mark.hpp>
 
+Omega_h::LOs get_wall_edge_ids(Omega_h::Mesh *mesh) {
+  const auto offset_face =
+      mesh->get_tag<Omega_h::LO>(Omega_h::FACE, "offset_face")->array();
+
+  const auto edge2face = mesh->ask_up(Omega_h::EDGE, Omega_h::FACE);
+  const auto edge2faceFace = edge2face.ab2b;
+  const auto edge2faceOffset = edge2face.a2ab;
+
+  const int n_edges = mesh->nedges();
+  Omega_h::Write<Omega_h::LO> wall_edge_marks(n_edges, 0, "wall_edge_marks");
+
+  auto mark_wall_edges = OMEGA_H_LAMBDA(const int edge) {
+    const int num_adj_faces = edge2faceOffset[edge + 1] - edge2faceOffset[edge];
+    if (num_adj_faces == 2) {
+      const Omega_h::LO face0 = edge2faceFace[edge2faceOffset[edge]];
+      const Omega_h::LO face1 = edge2faceFace[edge2faceOffset[edge] + 1];
+      if (offset_face[face0] != offset_face[face1]) {
+        wall_edge_marks[edge] = 1;
+      }
+    }
+  };
+  Omega_h::parallel_for(n_edges, mark_wall_edges, "mark_wall_edges");
+  Omega_h::fence();
+
+  int num_wall_edges = Omega_h::get_sum(Omega_h::Read(wall_edge_marks));
+  printf("Number of wall edges: %d\n", num_wall_edges);
+  int num_wall_points = Omega_h::get_sum(
+      mesh->get_tag<Omega_h::LO>(Omega_h::VERT, "isOnWall")->array());
+  OMEGA_H_CHECK_PRINTF(num_wall_edges == num_wall_points,
+                       "Error: num_wall_points of edge_ids array does not "
+                       "match number of wall edges (%d != %d).\n",
+                       num_wall_points, num_wall_edges);
+
+  Omega_h::Write<Omega_h::LO> wall_edge_ids(num_wall_edges, "wall_edge_ids");
+  Omega_h::LO highest_marked_index = 0;
+  Kokkos::parallel_scan(
+      n_edges,
+      KOKKOS_LAMBDA(const Omega_h::LO i, Omega_h::LO &partial_sum,
+                    const bool final) {
+        const Omega_h::LO offset = partial_sum;
+        if (wall_edge_marks[i]) {
+          partial_sum++;
+        }
+        if (final && wall_edge_marks[i]) {
+          wall_edge_ids[offset] = i;
+        }
+      },
+      highest_marked_index);
+
+  return wall_edge_ids;
+}
+
+Omega_h::LOs get_wall_adjacent_triangles(Omega_h::Mesh *mesh) {
+  const auto offset_face =
+      mesh->get_tag<Omega_h::LO>(Omega_h::FACE, "offset_face")->array();
+
+  const auto edge2face = mesh->ask_up(Omega_h::EDGE, Omega_h::FACE);
+  const auto edge2faceFace = edge2face.ab2b;
+  const auto edge2faceOffset = edge2face.a2ab;
+  const Omega_h::LOs wall_edges = get_wall_edge_ids(mesh);
+  printf("Number of wall edges: %d\n", wall_edges.size());
+
+  Omega_h::Write<Omega_h::LO> wall_adjacent_triangles_w(
+      2 * wall_edges.size(), "wall_adjacent_triangles");
+
+  auto get_wall_adjacent_faces = OMEGA_H_LAMBDA(const Omega_h::LO i) {
+    const Omega_h::LO edge = wall_edges[i];
+    const int n_adj_faces = edge2faceOffset[edge + 1] - edge2faceOffset[edge];
+    OMEGA_H_CHECK(n_adj_faces == 1 || n_adj_faces == 2);
+
+    if (n_adj_faces == 2) {
+      const Omega_h::LO face0 = edge2faceFace[edge2faceOffset[edge]];
+      const Omega_h::LO face1 = edge2faceFace[edge2faceOffset[edge] + 1];
+      OMEGA_H_CHECK_PRINTF(offset_face[face0] != offset_face[face1],
+                           "Not a wall edge! %d %d\n", face0, face1);
+
+      if (offset_face[face0] == 1) {
+        wall_adjacent_triangles_w[2 * i + 0] = face1;
+        wall_adjacent_triangles_w[2 * i + 1] = face0;
+      } else {
+        wall_adjacent_triangles_w[2 * i + 0] = face0;
+        wall_adjacent_triangles_w[2 * i + 1] = face1;
+      }
+    }
+  };
+  Omega_h::parallel_for(wall_edges.size(), get_wall_adjacent_faces,
+                        "get_wall_adjacent_faces");
+
+  return wall_adjacent_triangles_w;
+}
+
 Kokkos::View<int *[6]>
 calculate_face_connectivity(Omega_h::Mesh mesh,
                             Kokkos::View<double *[6]> edge_coefficients_v,
