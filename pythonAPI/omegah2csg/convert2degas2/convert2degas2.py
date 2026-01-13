@@ -44,6 +44,8 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', tol=1e-10):
         # sorted like e0+, e0-, e1+, e1-, ...
         edge_to_face_map_sorted = sort_edge_to_face_map(edge_to_face_map, face2edge_map)
         wall_nodes_flag = mesh.get_integer_tag_array(0, "isOnWall")
+        first_wall_adjacent_faces = mesh.get_wall_adjacent_triangles()
+        first_wall_edges = mesh.get_wall_edge_ids()
 
     Ntri = face2edge_map.shape[0] # ncells
     num_boundary_face = boundary_face_flag.sum()
@@ -54,8 +56,8 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', tol=1e-10):
     # universal cells has Nwall boundaries and each triangle has 3 sides and 2 cut surfaces
     nboundaries = Nwall + 5*Ntri
     nneighbors = Nedge*2
-    nsectors = num_boundary_face
     num_first_wall_points = np.sum(wall_nodes_flag)
+    nsectors = 2 * num_first_wall_points
 
     # FIXME NETCDF_CLASSIC is limited to 2GB
     root_g = netCDF4.Dataset(netcdf_filename, mode='w', format='NETCDF4_CLASSIC')
@@ -346,6 +348,12 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', tol=1e-10):
     # -------------------------- Sector ---------------------------------------- #
     sectors = np.zeros(nsectors + 1, dtype=int)
     sectors[0] = INT_UNUSED
+    sectors[1:] = first_wall_adjacent_faces
+    sectors_var[:] = sectors
+
+    sector_surface = np.zeros(nsectors + 1, dtype=int)
+    sector_surface[0] = INT_UNUSED
+
 
     sc_plasma_num = num_first_wall_points
     sc_target_num = num_first_wall_points
@@ -357,6 +365,63 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', tol=1e-10):
     target_sector[1:] = 2. + 2*np.arange(sc_target_num)
     plasma_sector_var[:] = plasma_sector
     target_sector_var[:] = target_sector
+
+    sector_zone = np.zeros(nsectors+1,dtype=int)
+    sector_zone[0]=INT_UNUSED
+    sector_zone[1::2] = 3
+    sector_zone[2::2] = 2
+    sector_zone_var[:] = sector_zone
+
+    sector_surface = np.zeros(nsectors + 1, dtype=int)
+    sector_surface[0] = INT_UNUSED
+    surface_sectors = np.zeros([Nsurf_tot, 2, 2], dtype=int)
+    j_sector = 1
+
+    for i in range(0, num_first_wall_points):
+        plasma_face = first_wall_adjacent_faces[2*i]
+        target_face = first_wall_adjacent_faces[2*i+1]
+
+        ptr1 = cells[1 + plasma_face, 0] - 1
+        ptr2 = cells[1 + target_face, 0] - 1
+        commonsurf, idx1, idx2 = np.intersect1d(np.abs(boundaries[ptr1:ptr1 + 3]), np.abs(boundaries[ptr2:ptr2 + 3]),
+                                                return_indices=True)
+        psurf = boundaries[ptr1 + idx1[0]]
+        tsurf = boundaries[ptr1 + idx2[0]]
+        sector_surface[2 * i + 1] = psurf
+        sector_surface[2 * i + 2] = tsurf
+
+        wall_edge = first_wall_edges[i]
+        surface_sectors[wall_edge, 1, :] = 1
+
+        if psurf < 0:
+            surface_sectors[wall_edge, 0, 0] = j_sector
+            surface_sectors[wall_edge, 0, 1] = j_sector + 1
+        else:
+            surface_sectors[wall_edge, 0, 0] = j_sector + 1
+            surface_sectors[wall_edge, 0, 1] = j_sector
+
+        j_sector += 2
+
+    sector_surface_var[:] = sector_surface
+
+    # boundary edges
+    for edge_id in boundary_edge_ids:
+        edge_id = abs(edge_id)
+        surface_sectors[edge_id, 0, :] = j_sector
+
+    surface_sectors_var[:] = surface_sectors
+
+
+    sector_points = np.zeros([nsectors + 1, 2, 3])
+    sector_points[0, :, :] = DBL_UNUSED
+    for i in range(0, num_first_wall_points):
+        wall_edge = first_wall_edges[i]
+        sector_points[2 * i + 1, 0, :] = [edge_coordinates[wall_edge*4 + 0], 0.0, edge_coordinates[wall_edge*4 + 1]]
+        sector_points[2 * i + 1, 1, :] = [edge_coordinates[wall_edge*4 + 2], 0.0, edge_coordinates[wall_edge*4 + 3]]
+        sector_points[2 * i + 2, :, :] = sector_points[2 * i + 1, :, :]
+
+    sector_points_var[:] = sector_points
+
 
 
     sector_type_pointer = INT_UNUSED * np.ones([nsectors + 1, 17], dtype=int)
