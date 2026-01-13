@@ -60,7 +60,7 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', tol=1e-10):
     nsectors = 2 * num_first_wall_points
 
     # FIXME NETCDF_CLASSIC is limited to 2GB
-    root_g = netCDF4.Dataset(netcdf_filename, mode='w', format='NETCDF4_CLASSIC')
+    root_g = netCDF4.Dataset(netcdf_filename, mode='w', format='NETCDF4')
 
 
     # *********************************************************************************************** #
@@ -84,17 +84,17 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', tol=1e-10):
     zone_type_ind = root_g.createDimension("zone_type_ind", 4)
     zone_index_ind = root_g.createDimension("zone_index_ind", 4)
     zone_ind = root_g.createDimension("zone_ind", Nplasma + 1)
-    sector_ind = root_g.createDimension("sector_ind", 2 * Nwall + 1)
+    sector_ind = root_g.createDimension("sector_ind", nsectors + 1)
     sector_neg_pos_ind = root_g.createDimension("sector_neg_pos_ind", 2)
     sector_type_ind = root_g.createDimension("sector_type_ind", 17)
     vacuum_ind = root_g.createDimension("vacuum_ind", 1)
-    plasma_ind = root_g.createDimension("plasma_ind", Nwall + 1)
-    target_ind = root_g.createDimension("target_ind", Nwall + 1)
+    plasma_ind = root_g.createDimension("plasma_ind", num_first_wall_points + 1)
+    target_ind = root_g.createDimension("target_ind", num_first_wall_points + 1)
     wall_ind = root_g.createDimension("wall_ind", 1)
     exit_ind = root_g.createDimension("exit_ind", 1)
     sc_diag_name_string = root_g.createDimension("sc_diag_name_string", 40)
     diag_grp_ind = root_g.createDimension("diag_grp_ind", 4)
-    sc_diag_ind = root_g.createDimension("sc_diag_ind", 3 * Nwall)
+    sc_diag_ind = root_g.createDimension("sc_diag_ind", 3 * num_first_wall_points)
     de_symbol_string = root_g.createDimension("de_symbol_string", 24)
     de_name_string = root_g.createDimension("de_name_string", 100)
     de_grp_ind = root_g.createDimension("de_grp_ind", 1)
@@ -102,6 +102,8 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', tol=1e-10):
     de_tot_view_ind = root_g.createDimension("de_tot_view_ind", 1)
     de_start_end_ind = root_g.createDimension("de_start_end_ind", 2)
     de_view_ind = root_g.createDimension("de_view_ind", 1)
+    print("Dimensions created. Now creating variables...")
+
 
     # *********************************************************************************************** #
     # ---------------------------------- Variables -------------------------------------------------- #
@@ -196,7 +198,7 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', tol=1e-10):
     de_view_base_var = root_g.createVariable("de_view_base", "i4", ("de_grp_ind",))
     de_view_size_var = root_g.createVariable("de_view_size", "i4")
     de_view_tab_var = root_g.createVariable("de_view_tab", "i4", ("de_view_ind",))
-
+    print("Variables created. Now filling the variables...")
 
     # *********************************************************************************************** #
     # ---------------------------------- Fill Up ---------------------------------------------------- #
@@ -204,7 +206,7 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', tol=1e-10):
 
     ncells_var[:] = Ntri
     nsurfaces_var[:] = Nsurf_tot
-    nboundaries_var[:] = [nboundaries]
+    nboundaries_var[:] = nboundaries
     nneighbors_var[:] = nneighbors
     ntransforms_var[:] = 0 # hardcoded to zero
     geometry_symmetry_var[:] = 2 # hardcoded to two
@@ -248,7 +250,6 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', tol=1e-10):
     cells[1:Nplasma + 1, 3] = np.array(range(1, Nplasma + 1), dtype=int)
     cells[Nplasma + 1:, 3] = Nplasma + 1
 
-    ncells_var[:] = Ntri
     cells_var[:] = cells
 
     # ------------------------- Boundaries ------------------------------------ #
@@ -283,7 +284,7 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', tol=1e-10):
         elif pos_face == -1 and neg_face != -1:
             surfaces[i, 1, 1] = 0
             surfaces[i, 1, 0] = 1
-        elif neg_face != -1 and pos_face == -1:
+        elif neg_face != -1 and pos_face != -1:
             surfaces[i, 1, :] = 1
         else:
             raise RuntimeError(f"pos_face={pos_face}, neg_face={neg_face} is not correct!")
@@ -381,8 +382,8 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', tol=1e-10):
         plasma_face = first_wall_adjacent_faces[2*i]
         target_face = first_wall_adjacent_faces[2*i+1]
 
-        ptr1 = cells[1 + plasma_face, 0] - 1
-        ptr2 = cells[1 + target_face, 0] - 1
+        ptr1 = cells[1 + plasma_face, 0]
+        ptr2 = cells[1 + target_face, 0]
         commonsurf, idx1, idx2 = np.intersect1d(np.abs(boundaries[ptr1:ptr1 + 3]), np.abs(boundaries[ptr2:ptr2 + 3]),
                                                 return_indices=True)
         psurf = boundaries[ptr1 + idx1[0]]
@@ -425,19 +426,19 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', tol=1e-10):
 
 
     sector_type_pointer = INT_UNUSED * np.ones([nsectors + 1, 17], dtype=int)
-    sc_diag_size = 3 * Nwall # ask
+    sc_diag_size = 3 * num_first_wall_points
     diagnostic_sector_tab = np.zeros(sc_diag_size, dtype=int)
 
     sector_type_pointer[0, :] = INT_UNUSED / 2
     # fixme after surface, face, etc.
-    for i in range(0, Nwall):
+    for i in range(0, num_first_wall_points):
         sector_type_pointer[2*i+1,1] = i+1
         sector_type_pointer[2*i+2,2] = i+1
         sector_type_pointer[2*i+2,5:8] = i+1
 
         diagnostic_sector_tab[i] = 2 * i + 2
-        diagnostic_sector_tab[Nwall + i] = 2 * i + 2
-        diagnostic_sector_tab[2 * Nwall + i] = 2 * i + 2
+        diagnostic_sector_tab[num_first_wall_points + i] = 2 * i + 2
+        diagnostic_sector_tab[2 * num_first_wall_points + i] = 2 * i + 2
 
     sector_type_pointer_var[:] = sector_type_pointer
     diagnostic_sector_tab_var[:] = diagnostic_sector_tab
@@ -459,8 +460,8 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', tol=1e-10):
     detector_total_views = 0
     zn_num = Nplasma + 1
     sc_vacuum_num = 0
-    sc_plasma_num = Nwall
-    sc_target_num = Nwall
+    sc_plasma_num = num_first_wall_points
+    sc_target_num = num_first_wall_points
     sc_wall_num = 0
     sc_exit_num = 0
     sc_diagnostic_grps = 3
@@ -510,7 +511,6 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', tol=1e-10):
     wall_sector_var[:] = wall_sector
     wall_material_var[:] = wall_material
     wall_temperature_var[:] = wall_temperature
-    wall_recyc_coef_var[:] = wall_recyc_coef
 
     recyc_coef = 0.99
     target_recyc_coef = recyc_coef * np.ones(sc_target_num + 1)

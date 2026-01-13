@@ -61,6 +61,8 @@ _dll.capi_get_wall_adjacent_triangles.argtypes = [OmegaHMeshPointer, ndpointer(c
 
 _dll.capi_get_wall_edge_ids.argtypes = [OmegaHMeshPointer, ndpointer(c_int), c_int]
 
+_dll.capi_get_edge_to_face_connectivity.argtypes = [OmegaHMeshPointer, ndpointer(c_int), c_int]
+
 
 class OmegaHMesh:
     """
@@ -228,7 +230,7 @@ class OmegaHMesh:
             nedges = self.num_entities(1)
             edge_map_size = nedges * 2
             edge_to_face_map = np.empty(edge_map_size, dtype=np.int32)
-            _dll.capi_get_edge_to_face_map(self.mesh, edge_to_face_map, edge_map_size)
+            _dll.capi_get_edge_to_face_connectivity(self.mesh, edge_to_face_map, edge_map_size)
             return edge_to_face_map.reshape((nedges, 2))
 
         except Exception as exception:
