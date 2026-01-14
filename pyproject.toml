@@ -28,7 +28,7 @@ license-files = ["LICEN[CS]E*"]
 
 dependencies = [
     "openmc >= 0.15.0",
-    "netCDF4"
+    "netCDF4 == 1.7.2"
 ]
 [project.optional-dependencies]
 test = [

@@ -94,7 +94,7 @@ def test_get_number_of_edges_inside_wall():
         #assert number_of_edges_inside_wall == 28917 - get_num_of_boundary_edges(mesh)
 
 
-def test_convert2degas2():
+def test_convert2degas2_compare():
     with nc.Dataset(dg2_generated_geometry_filename, "r", format="NETCDF4_CLASSIC") as ref_geometry:
         surface_sectors_works = ref_geometry["surface_sectors"]
         sectors_works = ref_geometry["sectors"]
@@ -104,7 +104,22 @@ def test_convert2degas2():
         surfidx = abs(sector_surface_works[2])
         assert surfidx == 24599, "suridx must be 24599 for this geometry"
 
+def test_convert2degas2():
         convert2degas2(with_boundary_layer_file)
+
+def test_small_netcdf_write():
+    root_g = nc.Dataset("test.nc", mode='w', format='NETCDF4')
+    vector = root_g.createDimension("vector", 3)
+    # ncells_var = root_g.createVariable("ncells", "i4", ())
+    universal_cell_min_var = root_g.createVariable("universal_cell_min", "f8", ("vector",))
+    print(np.arange(-90, 91, 2.5).shape)
+    print(f"Universal cell min shape = {universal_cell_min_var.shape}")
+    cell_min = np.array([0., 0., 0.])
+    print(cell_min.shape)
+    universal_cell_min_var[:] = cell_min
+    # ncells_var[:] = 5
+    root_g.close()
+
 
 def test_get_wall_adjacent_triangles():
     with OmegaHMesh(with_boundary_layer_file) as mesh:

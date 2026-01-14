@@ -4,6 +4,7 @@ build/
 *config.sh
 check-format.sh
 geometry.nc
+test.nc
 
 # Compiled objects and modules
 *.a

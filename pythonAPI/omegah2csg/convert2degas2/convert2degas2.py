@@ -60,7 +60,7 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', tol=1e-10):
     nsectors = 2 * num_first_wall_points
 
     # FIXME NETCDF_CLASSIC is limited to 2GB
-    root_g = netCDF4.Dataset(netcdf_filename, mode='w', format='NETCDF4')
+    root_g = netCDF4.Dataset(netcdf_filename, mode='w', format='NETCDF4_CLASSIC')
 
 
     # *********************************************************************************************** #
