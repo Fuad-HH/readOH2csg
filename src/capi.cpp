@@ -506,3 +506,20 @@ extern "C" void capi_get_wall_adjacent_triangles(OmegaHMesh oh_mesh,
     triangles[i] = host_wall_adjacent_triangles[i];
   }
 }
+
+extern "C" void capi_get_node_coordinates(OmegaHMesh oh_mesh,
+                                          double *coordinates, const int size) {
+  auto mesh = reinterpret_cast<Omega_h::Mesh *>(oh_mesh.pointer);
+  const int n_vertices = mesh->nverts();
+  if (size != n_vertices * 2) {
+    throw std::runtime_error("Error: size of coordinates array does not match "
+                             "number of vertices * 2.");
+  }
+
+  const auto coords = mesh->coords();
+  const auto host_coords = Omega_h::HostRead(coords);
+
+  for (int i = 0; i < host_coords.size(); ++i) {
+    coordinates[i] = host_coords[i];
+  }
+}

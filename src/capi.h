@@ -73,6 +73,9 @@ void capi_get_wall_adjacent_triangles(OmegaHMesh oh_mesh, int *triangles,
                                       int size);
 void capi_get_wall_edge_ids(OmegaHMesh oh_mesh, int *edge_ids, int size);
 
+void capi_get_node_coordinates(OmegaHMesh oh_mesh, double *coordinates,
+                               int size);
+
 #ifdef __cplusplus
 }
 #endif

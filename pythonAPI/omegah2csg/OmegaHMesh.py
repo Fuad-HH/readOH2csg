@@ -63,6 +63,7 @@ _dll.capi_get_wall_edge_ids.argtypes = [OmegaHMeshPointer, ndpointer(c_int), c_i
 
 _dll.capi_get_edge_to_face_connectivity.argtypes = [OmegaHMeshPointer, ndpointer(c_int), c_int]
 
+_dll.capi_get_node_coordinates.argtypes = [OmegaHMeshPointer, ndpointer(c_double), c_int]
 
 class OmegaHMesh:
     """
@@ -124,6 +125,19 @@ class OmegaHMesh:
         if self.mesh is None:
             raise RuntimeError("No mesh loaded. Use as context manager.")
         return _dll.get_dim(self.mesh)
+
+    def get_node_coordinates(self) -> np.ndarray:
+        if not kokkos_runtime.is_running():
+            raise RuntimeError("Kokkos not running...")
+
+        try:
+            num_nodes = self.num_entities(0)
+            size = 2*num_nodes
+            coordinates = np.empty(size, dtype=np.float64)
+            _dll.capi_get_node_coordinates(self.mesh, coordinates, size)
+            return coordinates
+        except Exception as exception:
+            raise RuntimeError(f"Error getting node coordinates: {exception}")
 
     def is_bounded_by_box(self) -> bool:
         if not kokkos_runtime.is_running():

@@ -105,7 +105,7 @@ def test_convert2degas2_compare():
         assert surfidx == 24599, "suridx must be 24599 for this geometry"
 
 def test_convert2degas2():
-        convert2degas2(with_boundary_layer_file)
+        convert2degas2(with_boundary_layer_file, create_aux_files=True)
 
 def test_small_netcdf_write():
     root_g = nc.Dataset("test.nc", mode='w', format='NETCDF4')
