@@ -416,6 +416,7 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', create_aux_file
     plasma_sector_var[:] = plasma_sector
     target_sector_var[:] = target_sector
 
+    # fixme it is the cell[:,4]
     sector_zone = np.zeros(nsectors+1,dtype=int)
     sector_zone[0]=INT_UNUSED
     sector_zone[1::2] = 3
@@ -491,6 +492,11 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', create_aux_file
 
     sector_type_pointer_var[:] = sector_type_pointer
     diagnostic_sector_tab_var[:] = diagnostic_sector_tab
+
+    # collection of signed edges, each cells are bounded by its strata
+    # sector is surface and a direction, something physically happennign
+    # for each sector, what strata is associated with
+    # strata index and which edge is it
 
     sector_strata_segment = np.zeros(nsectors + 1, dtype=int)
     sector_strata_segment[0] = INT_UNUSED

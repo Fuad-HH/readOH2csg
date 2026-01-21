@@ -51,3 +51,5 @@ namespaces = true
 
 [project.scripts]
 convert2openmc = "omegah2csg.convert2openmc.convert2openmc_cli:app"
+convert2degas2 = "omegah2csg.convert2degas2.convert2degas2_cli:app"
+
