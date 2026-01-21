@@ -398,7 +398,8 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', create_aux_file
     # -------------------------- Sector ---------------------------------------- #
     sectors = np.zeros(nsectors + 1, dtype=int)
     sectors[0] = INT_UNUSED
-    sectors[1:] = first_wall_adjacent_faces
+    sectors[1::2] = np.arange(1, nsectors/2+1)
+    sectors[2::2] = num_first_wall_points + np.arange(1, nsectors/2+1)
     sectors_var[:] = sectors
 
     sector_surface = np.zeros(nsectors + 1, dtype=int)
