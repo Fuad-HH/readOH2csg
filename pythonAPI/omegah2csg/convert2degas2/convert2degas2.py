@@ -420,8 +420,19 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', create_aux_file
     # fixme it is the cell[:,4]
     sector_zone = np.zeros(nsectors+1,dtype=int)
     sector_zone[0]=INT_UNUSED
-    sector_zone[1::2] = 3
-    sector_zone[2::2] = 2
+    for i in range(0, num_first_wall_points):
+        plasma_cell = first_wall_adjacent_faces[2*i+0]
+        wall_cell = first_wall_adjacent_faces[2*i+1]
+        plasma_cell_zone = cells[plasma_cell+1, 3]
+        wall_cell_zone = cells[wall_cell+1, 3]
+
+        assert zone_type[plasma_cell_zone-1] != zone_type[wall_cell_zone-1],\
+            (f"Zone types are same across the wall {i}"
+             f"\nCells: {int(plasma_cell), int(wall_cell)}"
+             f"\nZones Ids: {int(plasma_cell_zone)}, {int(wall_cell_zone)}"
+             f"\nZone Types: {zone_type[plasma_cell_zone-1]}, {zone_type[wall_cell_zone-1]}"
+             f"\nNext Zone type: {zone_type[wall_cell_zone]}")
+
     sector_zone_var[:] = sector_zone
 
     sector_surface = np.zeros(nsectors + 1, dtype=int)
