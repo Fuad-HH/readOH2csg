@@ -426,6 +426,9 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', create_aux_file
         plasma_cell_zone = cells[plasma_cell+1, 3]
         wall_cell_zone = cells[wall_cell+1, 3]
 
+        sector_zone[2*i+1] = plasma_cell_zone
+        sector_zone[2*i+2] = wall_cell_zone
+
         assert zone_type[plasma_cell_zone-1] != zone_type[wall_cell_zone-1],\
             (f"Zone types are same across the wall {i}"
              f"\nCells: {int(plasma_cell), int(wall_cell)}"
@@ -513,7 +516,6 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', create_aux_file
     sector_strata_segment = np.zeros(nsectors + 1, dtype=int)
     sector_strata_segment[0] = INT_UNUSED
     # can be wrong since difference in boundary layer
-    sector_strata_segment[1:nsectors + 1] = sectors[1:nsectors + 1] - 1
     sector_strata_segment_var[:] = sector_strata_segment
 
     # ----------------------- Unmodified Variables ----------------------------- #
