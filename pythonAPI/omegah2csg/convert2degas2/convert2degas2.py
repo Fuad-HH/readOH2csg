@@ -289,9 +289,9 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', create_aux_file
     # ------------------------- Cells -------------------------------------- #
     # in note ncells = Ntri = Nplasma + 2*Nwall; ncells = ncells = Ntri+2*Nwall
     cells = np.zeros([Ntri + 1, 4], dtype=int) # ask
-    cells[0, 0:4] = [0, Nwall, Nwall, 0]
+    cells[0, 0:4] = [1, Nwall, Nwall, 0]
 
-    cells[1:Ntri + 1, 0] = Nwall + 5 * np.array(range(0, Ntri), dtype=int)
+    cells[1:Ntri + 1, 0] = 1 + Nwall + 5 * np.array(range(0, Ntri), dtype=int)
     cells[1:Ntri + 1, 1] = 3
     cells[1:Ntri + 1, 2] = 5
 
@@ -307,22 +307,22 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', create_aux_file
         bdy_start = Nwall + i*5
         cut_start = Nedge + 2*i
 
-        boundaries[bdy_start:bdy_start + 3] = [face2edge_map[i,0]*face2edge_map[i,1],
-                                               face2edge_map[i,2]*face2edge_map[i,3],
-                                               face2edge_map[i,4]*face2edge_map[i,5]]
+        boundaries[bdy_start:bdy_start + 3] = [(face2edge_map[i,0] + 1) * face2edge_map[i,1],
+                                               (face2edge_map[i,2] + 1) * face2edge_map[i,3],
+                                               (face2edge_map[i,4] + 1) * face2edge_map[i,5]]
         # todo check this: we may have different indices
         boundaries[bdy_start + 3:bdy_start + 5] = [cut_start + 1, cut_start + 2]
 
     # fill edges of the universal cell
-    boundaries[0:Nwall] = boundary_edge_ids
+    boundaries[0:Nwall] = np.sign(boundary_edge_ids) * (np.abs(boundary_edge_ids) + 1)
 
     boundaries_var[:] = boundaries
 
     # ------------------------ Surfaces ------------------------------------ #
     surfaces = np.zeros([Nsurf_tot, 2, 2], dtype=int)
-    # pointers
-    surfaces[:Nedge, 0, 0] = 1+ 2*np.arange(Nedge)
-    surfaces[:Nedge, 0, 1] = 2*np.arange(Nedge)
+    # pointers uses 0 based indexing
+    surfaces[:Nedge, 0, 0] = 1 + 2*np.arange(Nedge)
+    surfaces[:Nedge, 0, 1] = 0 + 2*np.arange(Nedge)
     # number of faces
     for i in range(0, Nedge):
         pos_face = edge_to_face_map_sorted[i,0]
@@ -349,10 +349,13 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', create_aux_file
 
     # ----------------------- Neighbors (Edge Adjacency Info) ----------------- #
     neighbors = np.zeros(nneighbors + 1, dtype=int)
+    edge_to_face_map_sorted[~(edge_to_face_map_sorted == -1)] += 1 # use one based indexing
     neighbors[0:Nedge*2] = edge_to_face_map_sorted.reshape(Nedge*2)
     neighbors_var[:] = neighbors
 
+
     # --------------------- Surface Coefficients ------------------------------ #
+    # TODO Create a better documentation of the coeffs
     surface_coeffs = np.zeros([Nsurf_tot, 10])
     # -b ^ 2 for a cone, -R ^ 2 for a cylinder, -Z0 for a plane
     surface_coeffs[:Nedge, 0] = edge_coefficients[:, 3]
@@ -362,7 +365,7 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', create_aux_file
     surface_coeffs[:Nedge, 4] = edge_coefficients[:, 0]
     surface_coeffs[:Nedge, 5] = edge_coefficients[:, 0]
     # in notebook np.where(np.logical_or(planecond,cylcond),np.zeros(Nsurfs),-np.ones(Nsurfs))
-    surface_coeffs[:Nedge, 6] = np.where((edge_coefficients[:, 5] > tol) & (edge_coefficients[:, 5] < 1.-tol), -1, 0)
+    surface_coeffs[:Nedge, 6] = edge_coefficients[:, 1]
 
     # Cut faces
     surface_coeffs[Nedge:Nsurf_tot:2, 0] = -cell_bounding_boxes[1::4]
@@ -447,8 +450,8 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', create_aux_file
         plasma_face = first_wall_adjacent_faces[2*i]
         target_face = first_wall_adjacent_faces[2*i+1]
 
-        ptr1 = cells[1 + plasma_face, 0]
-        ptr2 = cells[1 + target_face, 0]
+        ptr1 = cells[1 + plasma_face, 0] - 1
+        ptr2 = cells[1 + target_face, 0] - 1
         commonsurf, idx1, idx2 = np.intersect1d(np.abs(boundaries[ptr1:ptr1 + 3]), np.abs(boundaries[ptr2:ptr2 + 3]),
                                                 return_indices=True)
         psurf = boundaries[ptr1 + idx1[0]]
