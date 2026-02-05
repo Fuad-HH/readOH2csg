@@ -255,10 +255,10 @@ class OmegaHMesh:
             raise RuntimeError("Kokkos not running...")
 
         num_first_wall_points = np.sum(self.get_integer_tag_array(0, "isOnWall"))
-        wall_edge_ids = np.empty(2*num_first_wall_points, dtype=np.int32)
+        wall_edge_ids = np.empty(num_first_wall_points, dtype=np.int32)
 
         try:
-            _dll.capi_get_wall_edge_ids(self.mesh, wall_edge_ids, num_first_wall_points)
+            _dll.capi_get_wall_edge_ids(self.mesh, wall_edge_ids, wall_edge_ids.shape[0])
             return wall_edge_ids
         except Exception as exception:
             raise RuntimeError(f"Error getting wall edge ids: {exception}")

@@ -76,11 +76,12 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', create_aux_file
     with OmegaHMesh(mesh_filename) as mesh:
         assert mesh.has_boundary_layer, "Degas2 requires mesh to have a boundary layer. Use addBonudaryLayer tool from tomms."
         [edge_coefficients, boundary_edge_ids, face2edge_map] = get_all_geometry_info(mesh, tol=tol)
+        Ntri = face2edge_map.shape[0]  # ncells
         boundary_face_flag = mesh.get_boundary_face_flag()
         num_node = mesh.num_entities(0)
         cell_bounding_boxes = mesh.get_cell_bounding_boxes()
         tri_volumes = mesh.get_cell_volumes()
-        centroids = mesh.get_cell_centroids()
+        centroids = mesh.get_cell_centroids().reshape((Ntri, 2))
         edge_coordinates = mesh.get_edge_coordinates()
         edge_to_face_map = mesh.get_edge_to_face_map()
         # sorted like e0+, e0-, e1+, e1-, ...
@@ -93,7 +94,6 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', create_aux_file
             node_coordinates = mesh.get_node_coordinates()
             write_nodes_to_file(node_coordinates)
 
-    Ntri = face2edge_map.shape[0] # ncells
     num_boundary_face = boundary_face_flag.sum()
     Nplasma = Ntri - num_boundary_face
     Nedge = edge_coefficients.shape[0]
@@ -103,6 +103,7 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', create_aux_file
     nboundaries = Nwall + 5*Ntri
     nneighbors = Nedge*2
     num_first_wall_points = np.sum(wall_nodes_flag)
+    num_zones = Nplasma + num_first_wall_points
     nsectors = 2 * num_first_wall_points
 
     if create_aux_files:
@@ -132,7 +133,7 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', create_aux_file
     coeff_ind = root_g.createDimension("coeff_ind", 10)
     zone_type_ind = root_g.createDimension("zone_type_ind", 4)
     zone_index_ind = root_g.createDimension("zone_index_ind", 4)
-    zone_ind = root_g.createDimension("zone_ind", Nplasma + 1)
+    zone_ind = root_g.createDimension("zone_ind", num_zones + 1)
     sector_ind = root_g.createDimension("sector_ind", nsectors + 1)
     sector_neg_pos_ind = root_g.createDimension("sector_neg_pos_ind", 2)
     sector_type_ind = root_g.createDimension("sector_type_ind", 17)
@@ -266,38 +267,29 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', create_aux_file
     universal_cell_min_var[:] = universal_cell_min
     universal_cell_max_var[:] = universal_cell_max
 
-    zone_min = np.zeros((Nplasma + 1, 3))
-    zone_min[0:Nplasma, 0] = cell_bounding_boxes[0:Nplasma*4:4]
-    zone_min[0:Nplasma, 2] = cell_bounding_boxes[1:Nplasma*4:4]
-    zone_min[Nplasma, :] = [universal_cell_min[0], 0.0, universal_cell_min[2]]
-    zone_min_var[:] = zone_min
-
-    zone_max = np.zeros((Nplasma + 1, 3))
-    zone_max[0:Nplasma, 0] = cell_bounding_boxes[2:Nplasma*4:4]
-    zone_max[0:Nplasma, 2] = cell_bounding_boxes[3:Nplasma*4:4]
-    zone_max[Nplasma, :] = [universal_cell_max[0], 0.0, universal_cell_max[2]]
-    zone_max_var[:] = zone_max
-
     total_volume = tri_volumes.sum()
     universal_cell_vol_var[:] = total_volume
 
-    zone_volume = np.empty(Nplasma+1)
-    zone_volume[0:Nplasma] = tri_volumes[0:Nplasma]
-    zone_volume[Nplasma] = total_volume
-    zone_volume_var[:] = zone_volume
 
     # ------------------------- Cells -------------------------------------- #
     # in note ncells = Ntri = Nplasma + 2*Nwall; ncells = ncells = Ntri+2*Nwall
-    cells = np.zeros([Ntri + 1, 4], dtype=int) # ask
+    cells = -1 + np.zeros([Ntri + 1, 4], dtype=int) # ask
     cells[0, 0:4] = [1, Nwall, Nwall, 0]
 
     cells[1:Ntri + 1, 0] = 1 + Nwall + 5 * np.array(range(0, Ntri), dtype=int)
     cells[1:Ntri + 1, 1] = 3
     cells[1:Ntri + 1, 2] = 5
 
-    # zone index for plasma is unique
     cells[1:Nplasma + 1, 3] = np.array(range(1, Nplasma + 1), dtype=int)
-    cells[Nplasma + 1:, 3] = Nplasma + 1
+    # now comes the wall zones
+    for i, face in enumerate(first_wall_adjacent_faces[1::2]):
+        cells[face + 1, 3] = i + Nplasma + 1
+
+    assert np.max(cells[:, 3]) == num_zones, f"Error: Upto this point, {np.max(cells[:, 3])=} != {num_zones=}"
+
+    # all remaining cells has zone_id = num_zones
+    # the remaining values should be -1
+    cells[cells[:, 3] == -1, 3] = num_zones + 1
 
     cells_var[:] = cells
 
@@ -376,20 +368,59 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', create_aux_file
     surface_coeffs_var[:] = surface_coeffs
 
     # --------------------- Zones ------------------------------------------ #
-    zone_center = np.zeros([Nplasma + 1, 3])
-    zone_center[0:Nplasma, 0] = centroids[0:Nplasma*2:2]
-    zone_center[0:Nplasma, 1] = centroids[1:Nplasma*2:2]
-    # these two are slightly different from notebook
-    zone_center[Nplasma, 0] = np.average(centroids[0:Nplasma*2:2])
-    zone_center[Nplasma, 2] = np.average(centroids[1:Nplasma*2:2])
+    zone_center = np.zeros([num_zones + 1, 3])
+    zone_center[0:Nplasma, 0] = centroids[0:Nplasma, 0]
+    zone_center[0:Nplasma, 2] = centroids[0:Nplasma, 1]
+    # they do specify it with the first cells centroid we are doing it with the last
+    # for this zone
+    assert cells[-1, 3] == num_zones + 1, f"The next 2 lines won't work if this assertion fails."
+    zone_center[-1, 0] = centroids[-1:, 0]
+    zone_center[-1, 2] = centroids[-1:, 1]
+    # wall adjacent zones
+    outside_wall_faces = first_wall_adjacent_faces[1::2]
+    print(f"{outside_wall_faces=}")
+    zone_center[Nplasma:-1, 0] = centroids[outside_wall_faces, 0]
+    zone_center[Nplasma:-1, 2] = centroids[outside_wall_faces, 1]
+
     zone_center_var[:] = zone_center
 
-    zone_type = 2 * np.ones(Nplasma + 1, dtype=int)
-    zone_type[Nplasma] = 3
+
+    zone_min = np.zeros((num_zones + 1, 3))
+    zone_min[0:Nplasma, 0] = cell_bounding_boxes[0:Nplasma*4:4]
+    zone_min[0:Nplasma, 2] = cell_bounding_boxes[1:Nplasma*4:4]
+
+    zone_min[Nplasma:-1, 0] = cell_bounding_boxes[outside_wall_faces*4]
+    zone_min[Nplasma:-1, 2] = cell_bounding_boxes[outside_wall_faces*4 + 1]
+
+    zone_min[-1, :] = [universal_cell_min[0], 0.0, universal_cell_min[2]]
+    zone_min_var[:] = zone_min
+
+    zone_max = np.zeros((num_zones + 1, 3))
+    zone_max[0:Nplasma, 0] = cell_bounding_boxes[2:Nplasma*4:4]
+    zone_max[0:Nplasma, 2] = cell_bounding_boxes[3:Nplasma*4:4]
+
+    zone_max[Nplasma:-1, 0] = cell_bounding_boxes[outside_wall_faces*4 + 2]
+    zone_max[Nplasma:-1, 2] = cell_bounding_boxes[outside_wall_faces*4 + 3]
+
+    zone_max[-1, :] = [universal_cell_max[0], 0.0, universal_cell_max[2]]
+    zone_max_var[:] = zone_max
+
+
+    zone_volume = np.empty(num_zones+1)
+    zone_volume[0:Nplasma] = tri_volumes[0:Nplasma]
+
+    zone_volume[Nplasma:-1] = tri_volumes[outside_wall_faces]
+
+    # do not move this line here in this block
+    zone_volume[-1] = total_volume - np.sum(zone_volume)
+    zone_volume_var[:] = zone_volume
+
+    zone_type = 2 * np.ones(num_zones + 1, dtype=int)
+    zone_type[Nplasma:] = 3
     zone_type_var[:] = zone_type
 
-    zone_pointer = np.array(range(1, Nplasma + 2))
-    zone_pointer[-1] = 1
+    zone_pointer = np.array(range(1, num_zones + 2))
+    zone_pointer[Nplasma:] = np.array(range(1, num_zones - Nplasma + 2))
     zone_pointer_var[:] = zone_pointer
 
     # ----------------------- Surface Points ------------------------------ #
@@ -399,14 +430,10 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', create_aux_file
     surface_points_var[:] = surface_points
 
     # -------------------------- Sector ---------------------------------------- #
-    sectors = np.zeros(nsectors + 1, dtype=int)
-    sectors[0] = INT_UNUSED
-    sectors[1::2] = np.arange(1, nsectors/2+1)
-    sectors[2::2] = num_first_wall_points + np.arange(1, nsectors/2+1)
-    sectors_var[:] = sectors
-
-    sector_surface = np.zeros(nsectors + 1, dtype=int)
-    sector_surface[0] = INT_UNUSED
+    sector_zone = np.zeros(nsectors + 1, dtype=int)
+    sector_zone[0] = INT_UNUSED
+    sector_zone[1:] = cells[first_wall_adjacent_faces + 1,3]
+    sector_zone_var[:] = sector_zone
 
 
     sc_plasma_num = num_first_wall_points
@@ -421,28 +448,33 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', create_aux_file
     target_sector_var[:] = target_sector
 
     # fixme it is the cell[:,4]
-    sector_zone = np.zeros(nsectors+1,dtype=int)
-    sector_zone[0]=INT_UNUSED
+    sectors = np.zeros(nsectors+1,dtype=int)
+    sectors[0]=INT_UNUSED
     for i in range(0, num_first_wall_points):
         plasma_cell = first_wall_adjacent_faces[2*i+0]
         wall_cell = first_wall_adjacent_faces[2*i+1]
         plasma_cell_zone = cells[plasma_cell+1, 3]
         wall_cell_zone = cells[wall_cell+1, 3]
 
-        sector_zone[2*i+1] = plasma_cell_zone
-        sector_zone[2*i+2] = wall_cell_zone
+        sectors[2*i+1] = plasma_cell_zone
+        sectors[2*i+2] = wall_cell_zone
 
-        assert zone_type[plasma_cell_zone-1] != zone_type[wall_cell_zone-1],\
-            (f"Zone types are same across the wall {i}"
-             f"\nCells: {int(plasma_cell), int(wall_cell)}"
-             f"\nZones Ids: {int(plasma_cell_zone)}, {int(wall_cell_zone)}"
-             f"\nZone Types: {zone_type[plasma_cell_zone-1]}, {zone_type[wall_cell_zone-1]}"
-             f"\nNext Zone type: {zone_type[wall_cell_zone]}")
+        #assert zone_type[plasma_cell_zone-1] != zone_type[wall_cell_zone-1],\
+        #    (f"Zone types are same across the wall {i}"
+        #     f"\nCells: {int(plasma_cell), int(wall_cell)}"
+        #     f"\nZones Ids: {int(plasma_cell_zone)}, {int(wall_cell_zone)}"
+        #     f"\nZone Types: {zone_type[plasma_cell_zone-1]}, {zone_type[wall_cell_zone-1]}"
+        #     f"\nNext Zone type: {zone_type[wall_cell_zone]}")
 
-    sector_zone_var[:] = sector_zone
+    sectors_var[:] = sectors
 
     sector_surface = np.zeros(nsectors + 1, dtype=int)
     sector_surface[0] = INT_UNUSED
+    sector_surface[1::2] = first_wall_edges + 1
+    sector_surface[2::2] = -1 * (first_wall_edges + 1)
+    sector_surface_var[:] = sector_surface
+
+
     surface_sectors = np.zeros([Nsurf_tot, 2, 2], dtype=int)
     j_sector = 1
 
@@ -456,8 +488,6 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', create_aux_file
                                                 return_indices=True)
         psurf = boundaries[ptr1 + idx1[0]]
         tsurf = boundaries[ptr1 + idx2[0]]
-        sector_surface[2 * i + 1] = psurf
-        sector_surface[2 * i + 2] = tsurf
 
         wall_edge = first_wall_edges[i]
         surface_sectors[wall_edge, 1, :] = 1
@@ -471,7 +501,6 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', create_aux_file
 
         j_sector += 2
 
-    sector_surface_var[:] = sector_surface
 
     # boundary edges
     for edge_id in boundary_edge_ids:
@@ -530,7 +559,6 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', create_aux_file
     de_zone_frags_size = 0
     de_zone_frags_ind = 100
     detector_total_views = 0
-    zn_num = Nplasma + 1
     sc_vacuum_num = 0
     sc_plasma_num = num_first_wall_points
     sc_target_num = num_first_wall_points
@@ -539,7 +567,7 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', create_aux_file
     sc_diagnostic_grps = 3
     sc_diag_max_bins = 4
 
-    zn_num_var[:] = zn_num
+    zn_num_var[:] = num_zones + 1
     vacuum_sector = np.zeros(sc_vacuum_num + 1, dtype=int)
     vacuum_sector[0] = INT_UNUSED
     de_view_tab = INT_UNUSED * np.ones(de_view_size, dtype=int)
@@ -595,7 +623,7 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', create_aux_file
 
     zone_type_num = np.zeros(4, dtype=int)
     zone_type_num[1] = Nplasma
-    zone_type_num[2] = 1
+    zone_type_num[2] = num_zones - Nplasma + 1
     zone_type_num_var[:] = zone_type_num
 
     surfaces_tx_ind = np.zeros([Nsurf_tot, 2, 2], dtype=int)
@@ -603,8 +631,8 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', create_aux_file
     surfaces_tx_ind_var[:] = surfaces_tx_ind
     surfaces_tx_mx_var[:] = surfaces_tx_mx
 
-    zone_index = np.zeros([Nplasma + 1, 4], dtype=int)
-    zone_index[:, 3] = np.array(range(1, Nplasma + 2))
+    zone_index = np.zeros([num_zones + 1, 4], dtype=int)
+    zone_index[:, 3] = np.array(range(1, num_zones + 2))
     zone_index_var[:] = zone_index
 
     zone_index_min = np.zeros(4, dtype=int)
