@@ -447,17 +447,21 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', create_aux_file
     plasma_sector_var[:] = plasma_sector
     target_sector_var[:] = target_sector
 
-    # fixme it is the cell[:,4]
+    # sectors have its own numbering with 1-based indices
+    # surface_sectors point to this array
     sectors = np.zeros(nsectors+1,dtype=int)
     sectors[0]=INT_UNUSED
+    sectors[1:] = np.arange(1, nsectors+1)
+    sectors_var[:] = sectors
+
     for i in range(0, num_first_wall_points):
         plasma_cell = first_wall_adjacent_faces[2*i+0]
         wall_cell = first_wall_adjacent_faces[2*i+1]
         plasma_cell_zone = cells[plasma_cell+1, 3]
         wall_cell_zone = cells[wall_cell+1, 3]
 
-        sectors[2*i+1] = plasma_cell_zone
-        sectors[2*i+2] = wall_cell_zone
+        #sectors[2*i+1] = plasma_cell_zone
+        #sectors[2*i+2] = wall_cell_zone
 
         #assert zone_type[plasma_cell_zone-1] != zone_type[wall_cell_zone-1],\
         #    (f"Zone types are same across the wall {i}"
@@ -465,8 +469,6 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', create_aux_file
         #     f"\nZones Ids: {int(plasma_cell_zone)}, {int(wall_cell_zone)}"
         #     f"\nZone Types: {zone_type[plasma_cell_zone-1]}, {zone_type[wall_cell_zone-1]}"
         #     f"\nNext Zone type: {zone_type[wall_cell_zone]}")
-
-    sectors_var[:] = sectors
 
     sector_surface = np.zeros(nsectors + 1, dtype=int)
     sector_surface[0] = INT_UNUSED
@@ -476,36 +478,23 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', create_aux_file
 
 
     surface_sectors = np.zeros([Nsurf_tot, 2, 2], dtype=int)
-    j_sector = 1
 
-    for i in range(0, num_first_wall_points):
-        plasma_face = first_wall_adjacent_faces[2*i]
-        target_face = first_wall_adjacent_faces[2*i+1]
-
-        ptr1 = cells[1 + plasma_face, 0] - 1
-        ptr2 = cells[1 + target_face, 0] - 1
-        commonsurf, idx1, idx2 = np.intersect1d(np.abs(boundaries[ptr1:ptr1 + 3]), np.abs(boundaries[ptr2:ptr2 + 3]),
-                                                return_indices=True)
-        psurf = boundaries[ptr1 + idx1[0]]
-        tsurf = boundaries[ptr1 + idx2[0]]
-
-        wall_edge = first_wall_edges[i]
-        surface_sectors[wall_edge, 1, :] = 1
-
-        if psurf < 0:
-            surface_sectors[wall_edge, 0, 0] = j_sector
-            surface_sectors[wall_edge, 0, 1] = j_sector + 1
+    # the real edges (not cut surfaces) will have sectors associated
+    current_sector_pointer = 1
+    for i in range(0, Nedge):
+        # fixme replace this isin for performance
+        if not np.isin(i, first_wall_edges):
+            surface_sectors[i, 1, :] = 0
+            surface_sectors[i, 0, :] = current_sector_pointer
         else:
-            surface_sectors[wall_edge, 0, 0] = j_sector + 1
-            surface_sectors[wall_edge, 0, 1] = j_sector
+            surface_sectors[i, 1, :] = 1
+            surface_sectors[i, 0, 0] = current_sector_pointer
+            surface_sectors[i, 0, 1] = current_sector_pointer + 1
+            current_sector_pointer += 2
 
-        j_sector += 2
-
-
-    # boundary edges
-    for edge_id in boundary_edge_ids:
-        edge_id = abs(edge_id)
-        surface_sectors[edge_id, 0, :] = j_sector
+    # cut surfaces don't have sectors associated
+    surface_sectors[Nedge:, 1, :] = 0
+    surface_sectors[Nedge:, 0, :] = current_sector_pointer
 
     surface_sectors_var[:] = surface_sectors
 
@@ -641,8 +630,11 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', create_aux_file
     zone_index_max_var[:] = zone_index_max
 
     nsectors_var[:] = nsectors
-    strata = (Nplasma + 1) * np.ones(nsectors + 1, dtype=int)
+
+    strata = np.empty(nsectors+1)
     strata[0] = INT_UNUSED
+    # can be wrong since I didn't find exact definition.
+    strata[1:] = np.repeat(np.arange(Nplasma+1, Nplasma+1+num_first_wall_points),2)
     strata_var[:] = strata
 
     detector_name = [STR_UNUSED] * (de_grps + 1)
