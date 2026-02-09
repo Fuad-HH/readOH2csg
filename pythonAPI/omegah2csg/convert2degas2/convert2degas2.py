@@ -430,11 +430,6 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', create_aux_file
     surface_points_var[:] = surface_points
 
     # -------------------------- Sector ---------------------------------------- #
-    sector_zone = np.zeros(nsectors + 1, dtype=int)
-    sector_zone[0] = INT_UNUSED
-    sector_zone[1:] = cells[first_wall_adjacent_faces + 1,3]
-    sector_zone_var[:] = sector_zone
-
 
     sc_plasma_num = num_first_wall_points
     sc_target_num = num_first_wall_points
@@ -446,13 +441,6 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', create_aux_file
     target_sector[1:] = 2. + 2*np.arange(sc_target_num)
     plasma_sector_var[:] = plasma_sector
     target_sector_var[:] = target_sector
-
-    # sectors have its own numbering with 1-based indices
-    # surface_sectors point to this array
-    sectors = np.zeros(nsectors+1,dtype=int)
-    sectors[0]=INT_UNUSED
-    sectors[1:] = np.arange(1, nsectors+1)
-    sectors_var[:] = sectors
 
     for i in range(0, num_first_wall_points):
         plasma_cell = first_wall_adjacent_faces[2*i+0]
@@ -509,7 +497,46 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', create_aux_file
 
     sector_points_var[:] = sector_points
 
+    sector_draft = np.repeat(2 * (np.argsort(sector_surface[1::2]) + 1), 2)
+    sector_draft[1::2] -= 1
+    sectors = np.empty([nsectors + 1], dtype=int)
+    sectors[0] = INT_UNUSED
+    sectors[1:] = sector_draft
+    sectors_var[:] = sectors
 
+    sector_zone = np.zeros(nsectors + 1, dtype=int)
+    sector_zone[0] = INT_UNUSED
+    print(f"{first_wall_edges=}")
+    for i in range(0, num_first_wall_points):
+        plasma_cell = first_wall_adjacent_faces[2*i]
+        wall_cell = first_wall_adjacent_faces[2*i+1]
+        plasma_cell_zone = cells[plasma_cell+1, 3]
+        wall_cell_zone = cells[wall_cell+1, 3]
+        assert plasma_cell_zone != wall_cell_zone,\
+            f"Plasma cell zone and wall cells zones cannot be the same {plasma_cell_zone=}, {plasma_cell=}, {wall_cell=}"
+
+        boundary_face_id = first_wall_edges[i]
+        plasma_cell_boundaries = [(face2edge_map[plasma_cell ,0]) * face2edge_map[plasma_cell ,1],
+                                  (face2edge_map[plasma_cell ,2]) * face2edge_map[plasma_cell ,3],
+                                  (face2edge_map[plasma_cell ,4]) * face2edge_map[plasma_cell ,5]]
+        if np.isin(boundary_face_id, plasma_cell_boundaries):
+            sector_zone[2*i + 1] = plasma_cell_zone
+            sector_zone[2*i + 2] = wall_cell_zone
+        elif np.isin(-boundary_face_id, plasma_cell_boundaries):
+            sector_zone[2*i + 1] = wall_cell_zone
+            sector_zone[2*i + 2] = plasma_cell_zone
+        else:
+            raise RuntimeError(f"{boundary_face_id=} not found in {plasma_cell_boundaries=}")
+
+
+    #sector_zone[1:] = cells[first_wall_adjacent_faces + 1,3]
+    # sort using sectors as the index
+    #sector_zone[1:] = sector_zone[1:][sectors[1:]-1]
+    #sector_zone_var[0] = sector_zone[0]
+    #sector_zone_var[1::2] = sector_zone[2::2]
+    #sector_zone_var[2::2] = sector_zone[1::2]
+    sector_zone_var[:] = sector_zone
+    print(f"{sector_zone=}")
 
     sector_type_pointer = INT_UNUSED * np.ones([nsectors + 1, 17], dtype=int)
     sc_diag_size = 3 * num_first_wall_points
@@ -606,7 +633,7 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', create_aux_file
     target_recyc_coef[0] = DBL_UNUSED
     target_recyc_coef_var[:] = target_recyc_coef
 
-    target_material = 4 * np.ones(sc_target_num + 1, dtype=int)
+    target_material = 6 * np.ones(sc_target_num + 1, dtype=int)
     target_material[0] = INT_UNUSED
     target_material_var[:] = target_material
 
