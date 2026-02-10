@@ -1,3 +1,5 @@
+from collections import deque
+
 import netCDF4
 import numpy as np
 
@@ -7,6 +9,9 @@ from ..OmegaHMesh import OmegaHMesh
 INT_UNUSED = 2000000000
 DBL_UNUSED = 2.0e30
 STR_UNUSED = "UNUSED                                                                                              "
+BBOX_STRIDE = 4  # [min_x, min_y, max_x, max_y]
+BBOX_MIN_X = 0
+BBOX_MAX_X = 2
 
 
 # first one is on positive side
@@ -28,21 +33,33 @@ def sort_edge_to_face_map(edge_to_face_map, face2edge_map) -> np.ndarray:
                 if first_face_sign == 1:
                     continue
                 else:
-                    raise RuntimeError(f"Sign cannon be {first_face_sign}")
+                    raise RuntimeError(f"Sign cannot be {first_face_sign}")
 
     return edge_to_face_map
 
 
-def split_cell_needed(cell_id: int, edge_to_face_map: np.ndarray, max_neighbors: int = 2) -> bool:
+def compute_edge_use_counts(face2edge_map: np.ndarray) -> dict[int, int]:
+    """
+    Compute how many faces touch each edge.
+    """
+    edges = face2edge_map[:, ::2].ravel()
+    unique, counts = np.unique(edges, return_counts=True)
+    return dict(zip(unique.tolist(), counts.tolist()))
+
+
+def should_split_cell(cell_id: int, face2edge_map: np.ndarray, edge_use_counts: dict[int, int],
+                     max_cells_per_edge: int = 2) -> bool:
     """
     Determine whether a cell must be split to satisfy Degas2 neighbor limits.
 
-    Degas2 stores at most two neighbors for any surface. If a face is adjacent
-    to more than ``max_neighbors`` other faces (e.g., because the mesh contains
+    Degas2 stores at most two cells per edge. If a face is adjacent to more
+    than ``max_cells_per_edge`` other faces (e.g., because the mesh contains
     a T-junction), the corresponding cell needs to be split so that each
     resulting cell respects the limit.
     """
-    return np.count_nonzero(edge_to_face_map == cell_id) > 3 * max_neighbors
+    edges = face2edge_map[cell_id, ::2]
+    # For each edge of this cell, count how many cells touch it
+    return any(edge_use_counts.get(int(edge), 0) > max_cells_per_edge for edge in edges)
 
 
 def build_edge_to_face_from_connectivity(face2edge_map: np.ndarray, num_edges: int) -> np.ndarray:
@@ -84,15 +101,16 @@ def split_cell(cell_id: int,
                cell_bounding_boxes: np.ndarray,
                tri_volumes: np.ndarray,
                centroids: np.ndarray,
-               boundary_face_flag: np.ndarray):
+               boundary_face_flag: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
     Split a problematic cell into two logical cells along its x-extent.
 
     This creates a cloned cell that shares the same edge connectivity. The
     bounding boxes, volumes, centroids, and boundary flags are divided between
-    the two new entries so downstream indexing remains consistent. This keeps
-    the fix local to Degas2 output generation and avoids mutating the OmegaH
-    mesh itself.
+    the two new entries so downstream indexing remains consistent. The volume
+    and centroid split assumes an even division across the x-midpoint, which is
+    an approximation but keeps the Degas2 bookkeeping self-consistent without
+    mutating the OmegaH mesh itself.
     """
     n_cells = face2edge_map.shape[0]
 
@@ -100,33 +118,32 @@ def split_cell(cell_id: int,
     new_face2edge_map[:n_cells] = face2edge_map
     new_face2edge_map[n_cells] = face2edge_map[cell_id]
 
-    orig_bbox = cell_bounding_boxes[cell_id * 4:cell_id * 4 + 4].copy()
-    mid_x = 0.5 * (orig_bbox[0] + orig_bbox[2])
+    orig_bbox = cell_bounding_boxes[cell_id * BBOX_STRIDE:cell_id * BBOX_STRIDE + BBOX_STRIDE].copy()
+    mid_x = 0.5 * (orig_bbox[BBOX_MIN_X] + orig_bbox[BBOX_MAX_X])
 
-    new_bboxes = np.zeros((n_cells + 1) * 4, dtype=cell_bounding_boxes.dtype)
-    new_bboxes[:n_cells * 4] = cell_bounding_boxes
-    new_bboxes[n_cells * 4:(n_cells + 1) * 4] = orig_bbox
-    new_bboxes[cell_id * 4 + 2] = mid_x
-    new_bboxes[n_cells * 4 + 0] = mid_x
+    new_bboxes = np.zeros((n_cells + 1) * BBOX_STRIDE, dtype=cell_bounding_boxes.dtype)
+    new_bboxes[:n_cells * BBOX_STRIDE] = cell_bounding_boxes
+    new_bboxes[n_cells * BBOX_STRIDE:(n_cells + 1) * BBOX_STRIDE] = orig_bbox
+    new_bboxes[cell_id * BBOX_STRIDE + BBOX_MAX_X] = mid_x
+    new_bboxes[n_cells * BBOX_STRIDE + BBOX_MIN_X] = mid_x
 
     new_volumes = np.zeros(n_cells + 1, dtype=tri_volumes.dtype)
     new_volumes[:n_cells] = tri_volumes
     orig_vol = tri_volumes[cell_id]
     new_volumes[cell_id] = 0.5 * orig_vol
-    new_volumes[n_cells] = orig_vol - new_volumes[cell_id]
+    new_volumes[n_cells] = 0.5 * orig_vol
 
     new_centroids = np.zeros((n_cells + 1, 2), dtype=centroids.dtype)
     new_centroids[:n_cells] = centroids
     new_centroids[n_cells] = centroids[cell_id].copy()
-    new_centroids[cell_id, 0] = 0.5 * (orig_bbox[0] + mid_x)
-    new_centroids[n_cells, 0] = 0.5 * (mid_x + orig_bbox[2])
+    new_centroids[cell_id, 0] = 0.5 * (orig_bbox[BBOX_MIN_X] + mid_x)
+    new_centroids[n_cells, 0] = 0.5 * (mid_x + orig_bbox[BBOX_MAX_X])
 
     new_boundary_flags = np.zeros(n_cells + 1, dtype=boundary_face_flag.dtype)
     new_boundary_flags[:n_cells] = boundary_face_flag
     new_boundary_flags[n_cells] = boundary_face_flag[cell_id]
 
-    split_map = {cell_id: (cell_id, n_cells)}
-    return new_face2edge_map, new_bboxes, new_volumes, new_centroids, new_boundary_flags, split_map
+    return new_face2edge_map, new_bboxes, new_volumes, new_centroids, new_boundary_flags
 
 def write_nodes_to_file(node_coords, wallfile_name="wallfile.txt"):
     num_nodes = int(node_coords.shape[0]/2)
@@ -184,20 +201,29 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', create_aux_file
         edge_coordinates = mesh.get_edge_coordinates()
         edge_to_face_map = mesh.get_edge_to_face_map()
         # sorted like e0+, e0-, e1+, e1-, ...
-        edge_to_face_map_sorted = sort_edge_to_face_map(edge_to_face_map.copy(), face2edge_map)
+        edge_to_face_map_sorted = sort_edge_to_face_map(edge_to_face_map, face2edge_map)
 
         # Split cells that would violate Degas2 adjacency constraints
-        split_targets = [cid for cid in range(Ntri) if (not boundary_face_flag[cid]) and split_cell_needed(cid, edge_to_face_map_sorted)]
-        split_map = {}
-        if split_targets:
-            split_id = split_targets[0]
-            face2edge_map, cell_bounding_boxes, tri_volumes, centroids, boundary_face_flag, split_map = split_cell(
+        edge_use_counts = compute_edge_use_counts(face2edge_map)
+        pending = deque(idx for idx in range(Ntri) if should_split_cell(idx, face2edge_map, edge_use_counts))
+        while pending:
+            split_id = pending.popleft()
+            assert split_id < face2edge_map.shape[0], "Pending split id out of range"
+            if boundary_face_flag[split_id] or not should_split_cell(split_id, face2edge_map, edge_use_counts):
+                continue
+
+            face2edge_map, cell_bounding_boxes, tri_volumes, centroids, boundary_face_flag = split_cell(
                 split_id, face2edge_map, cell_bounding_boxes, tri_volumes, centroids, boundary_face_flag
             )
+            assert boundary_face_flag.size == face2edge_map.shape[0], \
+                "Boundary face flag size must match number of cells after split"
             Ntri = face2edge_map.shape[0]
             # rebuild edge adjacency so the new cell is represented
             edge_to_face_map = build_edge_to_face_from_connectivity(face2edge_map, edge_coefficients.shape[0])
             edge_to_face_map_sorted = sort_edge_to_face_map(edge_to_face_map, face2edge_map)
+            edge_use_counts = compute_edge_use_counts(face2edge_map)
+            # requeue the affected cells for re-evaluation
+            pending.extend([split_id, Ntri - 1])
         wall_nodes_flag = mesh.get_integer_tag_array(0, "isOnWall")
         first_wall_adjacent_faces = mesh.get_wall_adjacent_triangles()
         first_wall_edges = mesh.get_wall_edge_ids()
