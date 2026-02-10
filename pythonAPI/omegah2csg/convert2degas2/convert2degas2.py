@@ -15,6 +15,9 @@ def sort_edge_to_face_map(edge_to_face_map, face2edge_map) -> np.ndarray:
 
     for i in range(0, nedges):
         first_face = edge_to_face_map[i, 0]
+        if first_face < 0:
+            # dangling edge, keep ordering as-is
+            continue
         for j in range(0, 3):
             edge = face2edge_map[first_face, 2*j]
             if edge == i:
@@ -28,6 +31,102 @@ def sort_edge_to_face_map(edge_to_face_map, face2edge_map) -> np.ndarray:
                     raise RuntimeError(f"Sign cannon be {first_face_sign}")
 
     return edge_to_face_map
+
+
+def split_cell_needed(cell_id: int, edge_to_face_map: np.ndarray, max_neighbors: int = 2) -> bool:
+    """
+    Determine whether a cell must be split to satisfy Degas2 neighbor limits.
+
+    Degas2 stores at most two neighbors for any surface. If a face is adjacent
+    to more than ``max_neighbors`` other faces (e.g., because the mesh contains
+    a T-junction), the corresponding cell needs to be split so that each
+    resulting cell respects the limit.
+    """
+    return np.count_nonzero(edge_to_face_map == cell_id) > 3 * max_neighbors
+
+
+def build_edge_to_face_from_connectivity(face2edge_map: np.ndarray, num_edges: int) -> np.ndarray:
+    """
+    Reconstruct edge adjacency from the signed face-to-edge connectivity.
+
+    The OmegaH bindings return the adjacency directly, but once cells are
+    split, we need to rebuild it so the new cells are included. We rely on the
+    edge orientation encoded in ``face2edge_map``: a positive sign means the
+    cell uses the edge in its positive orientation, and a negative sign means
+    the opposite side.
+    """
+    edge_to_face_map = -1 * np.ones((num_edges, 2), dtype=int)
+    for face_id in range(face2edge_map.shape[0]):
+        for j in range(3):
+            edge = face2edge_map[face_id, 2 * j]
+            sign = face2edge_map[face_id, 2 * j + 1]
+            slot = 0 if sign == 1 else 1
+            if edge_to_face_map[edge, slot] == -1:
+                edge_to_face_map[edge, slot] = face_id
+            else:
+                # fall back to the other slot if the preferred one is taken
+                alt = 1 - slot
+                if edge_to_face_map[edge, alt] == -1:
+                    edge_to_face_map[edge, alt] = face_id
+                else:
+                    # keep the first two; Degas2 only stores two neighbors
+                    continue
+
+    # ensure slot 0 is populated when only the negative side exists
+    missing_pos = (edge_to_face_map[:, 0] == -1) & (edge_to_face_map[:, 1] != -1)
+    edge_to_face_map[missing_pos, 0] = edge_to_face_map[missing_pos, 1]
+    edge_to_face_map[missing_pos, 1] = -1
+    return edge_to_face_map
+
+
+def split_cell(cell_id: int,
+               face2edge_map: np.ndarray,
+               cell_bounding_boxes: np.ndarray,
+               tri_volumes: np.ndarray,
+               centroids: np.ndarray,
+               boundary_face_flag: np.ndarray):
+    """
+    Split a problematic cell into two logical cells along its x-extent.
+
+    This creates a cloned cell that shares the same edge connectivity. The
+    bounding boxes, volumes, centroids, and boundary flags are divided between
+    the two new entries so downstream indexing remains consistent. This keeps
+    the fix local to Degas2 output generation and avoids mutating the OmegaH
+    mesh itself.
+    """
+    n_cells = face2edge_map.shape[0]
+
+    new_face2edge_map = np.zeros((n_cells + 1, 6), dtype=face2edge_map.dtype)
+    new_face2edge_map[:n_cells] = face2edge_map
+    new_face2edge_map[n_cells] = face2edge_map[cell_id]
+
+    orig_bbox = cell_bounding_boxes[cell_id * 4:cell_id * 4 + 4].copy()
+    mid_x = 0.5 * (orig_bbox[0] + orig_bbox[2])
+
+    new_bboxes = np.zeros((n_cells + 1) * 4, dtype=cell_bounding_boxes.dtype)
+    new_bboxes[:n_cells * 4] = cell_bounding_boxes
+    new_bboxes[n_cells * 4:(n_cells + 1) * 4] = orig_bbox
+    new_bboxes[cell_id * 4 + 2] = mid_x
+    new_bboxes[n_cells * 4 + 0] = mid_x
+
+    new_volumes = np.zeros(n_cells + 1, dtype=tri_volumes.dtype)
+    new_volumes[:n_cells] = tri_volumes
+    orig_vol = tri_volumes[cell_id]
+    new_volumes[cell_id] = 0.5 * orig_vol
+    new_volumes[n_cells] = orig_vol - new_volumes[cell_id]
+
+    new_centroids = np.zeros((n_cells + 1, 2), dtype=centroids.dtype)
+    new_centroids[:n_cells] = centroids
+    new_centroids[n_cells] = centroids[cell_id].copy()
+    new_centroids[cell_id, 0] = 0.5 * (orig_bbox[0] + mid_x)
+    new_centroids[n_cells, 0] = 0.5 * (mid_x + orig_bbox[2])
+
+    new_boundary_flags = np.zeros(n_cells + 1, dtype=boundary_face_flag.dtype)
+    new_boundary_flags[:n_cells] = boundary_face_flag
+    new_boundary_flags[n_cells] = boundary_face_flag[cell_id]
+
+    split_map = {cell_id: (cell_id, n_cells)}
+    return new_face2edge_map, new_bboxes, new_volumes, new_centroids, new_boundary_flags, split_map
 
 def write_nodes_to_file(node_coords, wallfile_name="wallfile.txt"):
     num_nodes = int(node_coords.shape[0]/2)
@@ -85,7 +184,20 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', create_aux_file
         edge_coordinates = mesh.get_edge_coordinates()
         edge_to_face_map = mesh.get_edge_to_face_map()
         # sorted like e0+, e0-, e1+, e1-, ...
-        edge_to_face_map_sorted = sort_edge_to_face_map(edge_to_face_map, face2edge_map)
+        edge_to_face_map_sorted = sort_edge_to_face_map(edge_to_face_map.copy(), face2edge_map)
+
+        # Split cells that would violate Degas2 adjacency constraints
+        split_targets = [cid for cid in range(Ntri) if (not boundary_face_flag[cid]) and split_cell_needed(cid, edge_to_face_map_sorted)]
+        split_map = {}
+        if split_targets:
+            split_id = split_targets[0]
+            face2edge_map, cell_bounding_boxes, tri_volumes, centroids, boundary_face_flag, split_map = split_cell(
+                split_id, face2edge_map, cell_bounding_boxes, tri_volumes, centroids, boundary_face_flag
+            )
+            Ntri = face2edge_map.shape[0]
+            # rebuild edge adjacency so the new cell is represented
+            edge_to_face_map = build_edge_to_face_from_connectivity(face2edge_map, edge_coefficients.shape[0])
+            edge_to_face_map_sorted = sort_edge_to_face_map(edge_to_face_map, face2edge_map)
         wall_nodes_flag = mesh.get_integer_tag_array(0, "isOnWall")
         first_wall_adjacent_faces = mesh.get_wall_adjacent_triangles()
         first_wall_edges = mesh.get_wall_edge_ids()
@@ -728,4 +840,3 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', create_aux_file
 
     root_g.sync()
     root_g.close()
-
