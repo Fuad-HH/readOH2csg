@@ -1,0 +1,11 @@
+plasma_file plasmafile.txt
+new_source_group
+  source_type vol_source
+  source_geom volume
+  source_species H
+  source_root_sp H
+  specify_current
+  source_file sourcefile_vol.txt row
+  source_nflights 1000
+end_source_group
+

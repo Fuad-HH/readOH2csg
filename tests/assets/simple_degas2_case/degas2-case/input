@@ -1,0 +1,251 @@
+&sml_param
+sml_sort_ions=1000
+
+sml_node_file='minDG2Mesh.node'
+sml_ele_file= 'minDG2Mesh.ele'
+sml_surf_file= 'ltx.flx.aif'
+!sml_marker_temp_factor=2.5D0
+!sml_marker_min_temp=1D3
+sml_flat_marker=.true.
+sml_flat_marker_decay_start1=3.0D0
+sml_flat_marker_decay_start2=3.0D0
+sml_flat_marker_cutoff1=4.0D0
+sml_flat_marker_cutoff2=4.0D0
+sml_flat_marker_width1=1D0
+
+sml_dwdt_exb_only=.false.
+sml_00_npsi=10
+
+sml_special=0             ! 0: normal simulation, 1: single particle simulation
+sml_dt=0.002          ! delta-t for one time step - unit of toroidal transit time. 
+sml_mstep=3         ! total time step
+sml_deltaf=.false.              ! delta-f simulation switch - incomplete
+sml_turb_efield=.false.
+sml_00_efield=.true.
+sml_electron_on=.true.
+sml_nphi_total=2
+sml_bounce=1              ! Particle motion boundary condition 
+                          ! 1 for edge simulation (including open field line region)
+                          ! 2 for core simulation (excluding open field line region)
+sml_initial_deltaf_noise=0D-14
+sml_inpsi=0.0d0             ! inner boundary of simulation - unit of eq_x_psi
+sml_outpsi=1.13d0           ! outter boundary of simulation - unit of eq_x_psi
+sml_bt_sign=-1
+sml_bp_sign=1
+sml_restart_write_period=500
+sml_restart=.false.
+sml_radiation=.false.
+sml_guess_table_size=600
+sml_input_file_dir='./'
+sml_bd_ext_delta2=-0.01
+sml_bd_ext_delta1=-0.003
+sml_bd_ext_delta3=0.00
+sml_bd_ext_delta4=0.02
+sml_bd_ext_delta2H=0.08
+sml_bd_ext_delta3H=0.02
+sml_bd_ext_delta4H=0.04
+sml_sheath_mode=2
+sml_sheath_adjust=.true.
+sml_sheath_adjust_factor=0.25
+sml_sheath_init_pot_factor=2.5
+sml_rgn1_pot0_only=.false.
+sml_pol_decomp=.true.
+sml_f0_grid=.true.
+sml_source=.true.
+sml_f_source_period=1
+sml_symmetric_f=.false.
+sml_rhomax=1.3D-2
+sml_iter_solver=.true.
+sml_iter_solver_niter=10
+sml_poisson_solver_type=0
+sml_update_poisson_solver_nstep=1
+sml_max_imbalance=1.4D0
+sml_grid_nrho=8
+sml_ncycle_half=30
+sml_neutral=.true.
+sml_f0_grid_alpha_start=100
+sml_f0_grid_lbal_period=10
+sml_f0_grid_init_ptl_imbal = 1.2
+SML_F0_GRID_MAX_PTL_IMBAL = 1.25
+sml_wedge_n=1
+sml_ff_step=2
+sml_ff_order=4
+sml_poisson_use_bc=.false.
+sml_poisson_0m_full_geo=.true.
+sml_poisson_natural_boundary=.true.
+sml_update_poisson_solver=.false.
+sml_update_poisson_turb=.false.
+sml_update_poisson_solver_nstep=1
+!sml_update_ampere_solver=.true.
+!sml_update_ampere_solver_nstep=1
+sml_outpsi_priv1=0.95D0 
+sml_heuristic_priv_pot=.false.
+SML_EXCLUDE_PRIVATE=.false.
+SML_EXCLUDE_PRIVATE_TURB=.true.
+SML_USE_LOADING_FACTOR =  .true.
+sml_limit_marker_den=.false.
+sml_min_loading_factor=0.02D0
+sml_max_loading_factor=40D0
+sml_monte_num=9111000
+SML_MODE_SELECT_CUTOFF = 4
+SML_MODE_SELECT_INPSI = -0.1
+
+SML_RESAMP_ON = .false.
+
+!sml_adjust_eden=.f.
+!sml_adj_eden_zero_axis=.true.
+!sml_adj_eden_include_sol=.true.
+!sml_adj_eden_obd_psi=1.10
+!sml_adj_eden_vd_max=30D0
+/
+
+&ptl_param
+ptl_num_per_vertex=3 3 
+ptl_nsp=1
+ptl_mass_au = 5.45D-4 1D0 
+ptl_charge_eu = -1D0 1D0 
+/
+
+&eq_param ! Initial equilibrium profile - Tanh profile
+eq_filename='ltx.eqd'
+eq_dens_file='ne.prf' 'ne.prf'
+eq_temp_file='Te.prf' 'Ti.prf'
+
+eq_dens_shape = -1 -1 -1 
+eq_temp_shape = -1 -1 -1
+
+eq_out_decay_factor=1D0
+eq_priv_flux_decay_factor=0.2
+eq_priv_flux_decay_width=0.015
+
+/
+
+&col_param  ! Collision
+col_mode=4  ! 0 : off , 1 monte-carlo (non-conserving) 2: monte-carlo (conserving)
+/
+
+&diag_param ! diagnosis
+diag_tracer_n=0
+diag_tracer_period=100
+diag_neutral_period=10
+diag_1d_on=.true.
+diag_1d_period=10
+diag_3d_period=2
+diag_f3d_period=10
+diag_3d_on=.true.
+diag_weight_stats=.true.
+diag_f0_df_on=.true.
+diag_f0_df_period=10
+diag_f0_period=10
+diag_heat_on=.true.
+diag_heat_mode=2
+diag_heat_nphi=1
+diag_heat_spacing=2D-3
+/
+
+&neu_param            ! neutral collision
+  neu_num=10
+  neu_istep_max = 100
+  neu_adjust_n0 = .true.
+  neu_recycle_rate = 0.5
+  neu_background_period = 1
+  neu_start_time=1
+  neu_full_grid = .true.
+  neu_degas2=.true.
+  neu_ebin_min=0.1
+  neu_ebin_max=100.0
+  neu_ebin_num=2
+  neu_ebin_log=.true.
+/
+
+&smooth_param
+smooth_pol_efield=.true.
+smooth_pol_width=16
+smooth_pol_d0=8.0D0
+smooth_rad_efield=.false.
+
+smooth_fourier_filt_on=.true.
+smooth_sol_filt_lp0=0.2D0
+smooth_sol_filt_width=0.05D0
+smooth_fourier_filt_maxm=25
+smooth_fourier_filt_minm=0
+smooth_hyp_vis_rad_on=.true.
+smooth_hyp_vis_rad=0.01D0
+smooth_hyp_vis_rad_priv=1.0D0
+/
+
+&src_param
+src_narea=1 1 
+src_heat_power1=0.0D6 0.0D6 
+src_pin1=0.7 0.7 
+src_pout1=0.95 0.95 
+src_decay_width1=0.03 0.03 
+
+/
+
+&mon_param
+mon_flush_freq=100
+/
+
+&rad_param
+/
+
+&adios_param
+/
+
+&f0_param
+!f0_smu_max=4.0
+!f0_vp_max=4.0
+!f0_nvp=19
+!f0_nmu=38
+f0_smu_max=4.0
+f0_vp_max=4.0
+f0_nvp=19
+f0_nmu=38
+!f0_smu_max=3.0
+!f0_vp_max=3.0
+!f0_nvp=10
+!f0_nmu=20
+f0_update_analytic=.false.
+f0_update_analytic_alpha=0.001D0
+f0_update_analytic_local=.false.
+!f0_update_analytic_restart_read=.true.
+/
+
+&resamp_param
+resamp_rate=100
+resamp_min_ratio=0.90D0
+resamp_max_ratio=1.05D0
+resamp_max_target=30
+resamp_var = 1.0D-2                      !< threshold for relative standard deviation in bin for auto-resample
+resamp_tile_size = 2                     !< Bin size on the velocity space grid in cells (not vertices)
+resamp_ineq_tol = 1D-5                   !< Threshold for relative error in the inequality constraints in the QP optimization
+resamp_retry = .false.                   !< Retry QP optimization for failed bins with relaxed inequality constraints
+resamp_ineq_tol_max = 1D-4               !< Maximal threshold for relative error in inequality constraints for retried bins
+resamp_highv_max = 10D0                  !< energy cutoff of the high velocity bins v_para>f0_vp_max and v_perp>f0_smu_max
+resamp_highv_max_ratio = 4D0             !< Downsampling threshold for high-velocity bins
+resamp_fill_empty=.false.                !< Whether to fill empty bins
+resamp_fullf_on=.true.                  !< Whether to resample the full-f weights in addition to delta-f weights
+resamp_grid_ineq_on=.false.              !< Switch for using inequality constraints for the grid charge for resampling
+/
+
+&ptb_3db_param ! perturbed magnetic field
+/
+
+&cce_phicoupling
+/
+&cce_fcoupling
+/
+&cce_surfaces
+/
+&init_cond
+/
+&diff_param
+/
+&dg2_interpolation_param
+use_pcms_interpolation=.true.
+xgc_oh_mesh_filename= 'xgc.osh'
+dg2_oh_mesh_filename= '/users/hasanm4/lore.scorec.rpi.edu/wsources/DEGAS2-XGC/simulationRuns/d2sample-better-diffmesh/dg2-mesh/ltx_graded_gauss.osh'
+/
+
+

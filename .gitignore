@@ -5,8 +5,8 @@ build/
 check-format.sh
 geometry.nc
 test.nc
-plasmafile.txt
-sourcefile.txt
+/plasmafile.txt
+/sourcefile.txt
 wallfile.txt
 
 # Compiled objects and modules

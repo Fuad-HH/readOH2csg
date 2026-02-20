@@ -1,0 +1,23 @@
+$ $
+TEST
+0
+H
+H2
+H2+
+BACKGROUND
+e
+H+
+REACTION
+hionize5
+hchex_const
+h2dis
+h2ion
+h2dision
+h2pdision
+h2pdis
+h2pdisrec
+MATERIALS
+Li
+PMI
+hdesorbLi
+H_refl_svftrim_Li

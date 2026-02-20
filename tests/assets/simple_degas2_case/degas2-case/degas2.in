@@ -1,0 +1,31 @@
+# File Names for DEGAS 2
+
+# The name of this file is hardcoded in subroutine |readfilenames|
+# The syntax here is:
+
+# Reference input files
+
+elements_infile /users/hasanm4/lore.scorec.rpi.edu/wsources/DEGAS2-XGC/degas2/data/elements.input 
+elementsfile  /users/hasanm4/lore.scorec.rpi.edu/wsources/DEGAS2-XGC/degas2/data/elements.nc 
+species_infile /users/hasanm4/lore.scorec.rpi.edu/wsources/DEGAS2-XGC/degas2/data/species.input
+speciesfile /users/hasanm4/lore.scorec.rpi.edu/wsources/DEGAS2-XGC/degas2/data/species.nc 
+reaction_infile /users/hasanm4/lore.scorec.rpi.edu/wsources/DEGAS2-XGC/degas2/data/reactions.input
+reactionfile /users/hasanm4/lore.scorec.rpi.edu/wsources/DEGAS2-XGC/degas2/data/reactions.nc 
+materials_infile /users/hasanm4/lore.scorec.rpi.edu/wsources/DEGAS2-XGC/degas2/data/materials.input
+materialsfile /users/hasanm4/lore.scorec.rpi.edu/wsources/DEGAS2-XGC/degas2/data/materials.nc
+pmi_infile /users/hasanm4/lore.scorec.rpi.edu/wsources/DEGAS2-XGC/degas2/data/pmi.input
+pmifile /users/hasanm4/lore.scorec.rpi.edu/wsources/DEGAS2-XGC/degas2/data/pmi.nc
+
+# .nc "output" files read by other executables. 
+# Can name the following however you want
+problemfile problem.nc
+geometryfile geometry.nc
+backgroundfile background.nc
+tallyfile tally.nc
+outputfile output.nc
+
+# Problem specific files. Generate these yourself.
+problem_infile problem.in
+tally_infile tally.in
+
+

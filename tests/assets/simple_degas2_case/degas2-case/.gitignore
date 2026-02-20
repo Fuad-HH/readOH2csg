@@ -1,0 +1,5 @@
+*.nc
+*.out
+flights*
+temperature*.txt
+density*
