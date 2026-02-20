@@ -44,8 +44,8 @@ spack:
 
 after installing the dependencies, install `degas2` using the following command:
 
-[!NOTE]
->Remember activating the spack environment before running the command below.
+> [!IMPORTANT]
+> Remember activating the spack environment before running the command below.
 
 ```bash
 cmake -B build -S <your-degas2-source-dir> \
@@ -63,7 +63,7 @@ cmake -B build -S <your-degas2-source-dir> \
 cmake --build build -j 16 --target flighttest datasetup defineback tallysetup problemsetup
 ```
 
-[!TIP]
+> [!TIP]
 > Installation may not work since some of the targets may not compile. Just use them from the build directory.
 
 2. Go to the [`degas2-case`](./) folder.
