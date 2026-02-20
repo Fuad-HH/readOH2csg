@@ -7,6 +7,7 @@ from ..OmegaHMesh import OmegaHMesh
 INT_UNUSED = 2000000000
 DBL_UNUSED = 2.0e30
 STR_UNUSED = "UNUSED                                                                                              "
+GEOM_TOL = 1e-1
 
 
 # first one is on positive side
@@ -130,7 +131,7 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', create_aux_file
     tx_ind_1 = root_g.createDimension("tx_ind_1", 3)
     tx_ind_2 = root_g.createDimension("tx_ind_2", 4)
     transform_ind = root_g.createDimension("transform_ind", 1)
-    coeff_ind = root_g.createDimension("coeff_ind", 10)
+    coeff_ind = root_g.createDimension("coeff_ind", 11)
     zone_type_ind = root_g.createDimension("zone_type_ind", 4)
     zone_index_ind = root_g.createDimension("zone_index_ind", 4)
     zone_ind = root_g.createDimension("zone_ind", num_zones + 1)
@@ -348,7 +349,7 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', create_aux_file
 
     # --------------------- Surface Coefficients ------------------------------ #
     # TODO Create a better documentation of the coeffs
-    surface_coeffs = np.zeros([Nsurf_tot, 10])
+    surface_coeffs = np.zeros([Nsurf_tot, 11])
     # -b ^ 2 for a cone, -R ^ 2 for a cylinder, -Z0 for a plane
     surface_coeffs[:Nedge, 0] = edge_coefficients[:, 3]
     # b = 0 for a cylinder, 1/2 for a plane, and intercept for a cone
@@ -358,10 +359,12 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', create_aux_file
     surface_coeffs[:Nedge, 5] = edge_coefficients[:, 0]
     # in notebook np.where(np.logical_or(planecond,cylcond),np.zeros(Nsurfs),-np.ones(Nsurfs))
     surface_coeffs[:Nedge, 6] = edge_coefficients[:, 1]
+    # cone up or down direction flag
+    surface_coeffs[:Nedge, 10] = edge_coefficients[:, 4]
 
     # Cut faces
-    surface_coeffs[Nedge:Nsurf_tot:2, 0] = -cell_bounding_boxes[1::4]
-    surface_coeffs[Nedge+1:Nsurf_tot:2, 0] = cell_bounding_boxes[3::4]
+    surface_coeffs[Nedge:Nsurf_tot:2, 0] = - (- GEOM_TOL + cell_bounding_boxes[1::4])
+    surface_coeffs[Nedge+1:Nsurf_tot:2, 0] = (GEOM_TOL + cell_bounding_boxes[3::4])
     surface_coeffs[Nedge:Nsurf_tot:2, 3] = 1.0
     surface_coeffs[Nedge+1:Nsurf_tot:2, 3] = -1.0
 
@@ -378,7 +381,6 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', create_aux_file
     zone_center[-1, 2] = centroids[-1, 1]
     # wall adjacent zones
     outside_wall_faces = first_wall_adjacent_faces[1::2]
-    print(f"{outside_wall_faces=}")
     zone_center[Nplasma:-1, 0] = centroids[outside_wall_faces, 0]
     zone_center[Nplasma:-1, 2] = centroids[outside_wall_faces, 1]
 
