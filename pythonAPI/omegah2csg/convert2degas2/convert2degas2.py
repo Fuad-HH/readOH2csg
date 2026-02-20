@@ -444,27 +444,30 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', create_aux_file
     plasma_sector_var[:] = plasma_sector
     target_sector_var[:] = target_sector
 
-    for i in range(0, num_first_wall_points):
-        plasma_cell = first_wall_adjacent_faces[2*i+0]
-        wall_cell = first_wall_adjacent_faces[2*i+1]
-        plasma_cell_zone = cells[plasma_cell+1, 3]
-        wall_cell_zone = cells[wall_cell+1, 3]
-
-        #sectors[2*i+1] = plasma_cell_zone
-        #sectors[2*i+2] = wall_cell_zone
-
-        #assert zone_type[plasma_cell_zone-1] != zone_type[wall_cell_zone-1],\
-        #    (f"Zone types are same across the wall {i}"
-        #     f"\nCells: {int(plasma_cell), int(wall_cell)}"
-        #     f"\nZones Ids: {int(plasma_cell_zone)}, {int(wall_cell_zone)}"
-        #     f"\nZone Types: {zone_type[plasma_cell_zone-1]}, {zone_type[wall_cell_zone-1]}"
-        #     f"\nNext Zone type: {zone_type[wall_cell_zone]}")
-
+    sectors = np.empty([nsectors + 1], dtype=int)
+    sectors[0] = INT_UNUSED
     sector_surface = np.zeros(nsectors + 1, dtype=int)
     sector_surface[0] = INT_UNUSED
-    sector_surface[1::2] = first_wall_edges + 1
-    sector_surface[2::2] = -1 * (first_wall_edges + 1)
+    for i in range(0, first_wall_edges.shape[0]):
+        wall_edge = first_wall_edges[i]
+        plasma_cell = first_wall_adjacent_faces[2 * i + 0]
+        wall_cell = first_wall_adjacent_faces[2 * i + 1]
+        positive_cell = edge_to_face_map_sorted[wall_edge, 0] - 1
+        if plasma_cell == positive_cell:
+            sector_surface[2*i+1] = wall_edge+1
+            sector_surface[2*i+2] = -wall_edge-1
+            sectors[2*i+1] = i*2 + 2
+            sectors[2*i+2] = i*2 + 1
+        elif wall_cell == positive_cell:
+            sector_surface[2*i+1] = -wall_edge-1
+            sector_surface[2*i+2] = wall_edge+1
+            sectors[2*i+1] = i*2 + 1
+            sectors[2*i+2] = i*2 + 2
+        else:
+            raise RuntimeError(f"Incorrect cells {wall_edge=}, {plasma_cell=}, {wall_cell=}, {positive_cell=} ")
+
     sector_surface_var[:] = sector_surface
+    sectors_var[:] = sectors
 
 
     surface_sectors = np.zeros([Nsurf_tot, 2, 2], dtype=int)
@@ -499,46 +502,10 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', create_aux_file
 
     sector_points_var[:] = sector_points
 
-    sector_draft = np.repeat(2 * (np.argsort(sector_surface[1::2]) + 1), 2)
-    sector_draft[1::2] -= 1
-    sectors = np.empty([nsectors + 1], dtype=int)
-    sectors[0] = INT_UNUSED
-    sectors[1:] = sector_draft
-    sectors_var[:] = sectors
-
     sector_zone = np.zeros(nsectors + 1, dtype=int)
     sector_zone[0] = INT_UNUSED
-    print(f"{first_wall_edges=}")
-    for i in range(0, num_first_wall_points):
-        plasma_cell = first_wall_adjacent_faces[2*i]
-        wall_cell = first_wall_adjacent_faces[2*i+1]
-        plasma_cell_zone = cells[plasma_cell+1, 3]
-        wall_cell_zone = cells[wall_cell+1, 3]
-        assert plasma_cell_zone != wall_cell_zone,\
-            f"Plasma cell zone and wall cells zones cannot be the same {plasma_cell_zone=}, {plasma_cell=}, {wall_cell=}"
-
-        boundary_face_id = first_wall_edges[i]
-        plasma_cell_boundaries = [(face2edge_map[plasma_cell ,0]) * face2edge_map[plasma_cell ,1],
-                                  (face2edge_map[plasma_cell ,2]) * face2edge_map[plasma_cell ,3],
-                                  (face2edge_map[plasma_cell ,4]) * face2edge_map[plasma_cell ,5]]
-        if np.isin(boundary_face_id, plasma_cell_boundaries):
-            sector_zone[2*i + 1] = plasma_cell_zone
-            sector_zone[2*i + 2] = wall_cell_zone
-        elif np.isin(-boundary_face_id, plasma_cell_boundaries):
-            sector_zone[2*i + 1] = wall_cell_zone
-            sector_zone[2*i + 2] = plasma_cell_zone
-        else:
-            raise RuntimeError(f"{boundary_face_id=} not found in {plasma_cell_boundaries=}")
-
-
-    #sector_zone[1:] = cells[first_wall_adjacent_faces + 1,3]
-    # sort using sectors as the index
-    #sector_zone[1:] = sector_zone[1:][sectors[1:]-1]
-    #sector_zone_var[0] = sector_zone[0]
-    #sector_zone_var[1::2] = sector_zone[2::2]
-    #sector_zone_var[2::2] = sector_zone[1::2]
+    sector_zone[1:] = cells[first_wall_adjacent_faces + 1,3]
     sector_zone_var[:] = sector_zone
-    print(f"{sector_zone=}")
 
     sector_type_pointer = INT_UNUSED * np.ones([nsectors + 1, 17], dtype=int)
     sc_diag_size = 3 * num_first_wall_points
