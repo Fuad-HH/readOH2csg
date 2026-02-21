@@ -72,7 +72,7 @@ def write_dummy_bg_files_aux(nzone, nwall_input, stratum_start):
         if ((i + 1) % nperline == 0) and i != nwallsegs - 1:
             f.write("\n")
 
-def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', create_aux_files=False, tol=1e-10):
+def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', create_aux_files=True, tol=1e-10):
     assert netcdf_filename.endswith('.nc'), "Degas2 mesh name should end with .nc but given {}".format(netcdf_filename)
     with OmegaHMesh(mesh_filename) as mesh:
         assert mesh.has_boundary_layer, "Degas2 requires mesh to have a boundary layer. Use addBonudaryLayer tool from tomms."
