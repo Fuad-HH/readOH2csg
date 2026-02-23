@@ -63,3 +63,11 @@ as [gold-geometry.nc](./gold-geometry.nc).
 ## Run the Degas2 Case
 In the tests, we only compare the created `geometry.nc` files from both methods. But to run the case the created geometry file, we need `degas2`
 installation and related input files. An example case is given in [`degas2-case`](./degas2-case) folder. To run the case, you can follow the instructions in the [`README.md`](./degas2-case/README.md) file.
+
+## Special Findings Regarding `definegeometry2d`
+With this case, we found that the outermost boundary created by `definegeometry2d` is always a rectangle and each edge can only have
+a single triangle adjacent to it. To connect with one layer of elements for concave geometry, `definegeometry2d` fills the concave part with triangles and then creates a bounding rectangle around the geometry.
+
+![definegeometry2d created mesh for a concave geoemtry](images/recBoundary-dg2d.png)
+
+*The sideways U shape is the original geometry, then a wall layer is created around it (using degas2 python script `setup_xgc_case`), and then the bounding rectangle is created around it (using `definegeometry2d`).*
