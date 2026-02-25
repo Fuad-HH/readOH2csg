@@ -7,8 +7,6 @@ from ..OmegaHMesh import OmegaHMesh
 INT_UNUSED = 2000000000
 DBL_UNUSED = 2.0e30
 STR_UNUSED = "UNUSED                                                                                              "
-GEOM_TOL = 1e-1
-
 
 # first one is on positive side
 def sort_edge_to_face_map(edge_to_face_map, face2edge_map) -> np.ndarray:
@@ -98,10 +96,9 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', create_aux_file
     num_boundary_face = boundary_face_flag.sum()
     Nplasma = Ntri - num_boundary_face
     Nedge = edge_coefficients.shape[0]
-    Nsurf_tot = Nedge + 2*Ntri # each triangle has two cut surfaces nSurf_tot, nsurfaces
     Nwall = boundary_edge_ids.shape[0]
     # universal cells has Nwall boundaries and each triangle has 3 sides and 2 cut surfaces
-    nboundaries = Nwall + 5*Ntri
+    nboundaries = Nwall + 3*Ntri
     nneighbors = Nedge*2
     num_first_wall_points = np.sum(wall_nodes_flag)
     num_zones = Nplasma + num_first_wall_points
@@ -122,7 +119,7 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', create_aux_file
     string = root_g.createDimension("string", 300)
     cell_info_ind = root_g.createDimension("cell_info_ind", 4)
     cell_ind = root_g.createDimension("cell_ind", Ntri + 1)
-    surface_ind = root_g.createDimension("surface_ind", Nsurf_tot)
+    surface_ind = root_g.createDimension("surface_ind", Nedge)
     boundary_ind = root_g.createDimension("boundary_ind", nboundaries)
     neighbor_ind = root_g.createDimension("neighbor_ind", nneighbors + 1)
     neg_pos = root_g.createDimension("neg_pos", 2)
@@ -256,7 +253,7 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', create_aux_file
     # *********************************************************************************************** #
 
     ncells_var[:] = Ntri
-    nsurfaces_var[:] = Nsurf_tot
+    nsurfaces_var[:] = Nedge
     nboundaries_var[:] = nboundaries
     nneighbors_var[:] = nneighbors
     ntransforms_var[:] = 0 # hardcoded to zero
@@ -277,9 +274,9 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', create_aux_file
     cells = -1 + np.zeros([Ntri + 1, 4], dtype=int) # ask
     cells[0, 0:4] = [1, Nwall, Nwall, 0]
 
-    cells[1:Ntri + 1, 0] = 1 + Nwall + 5 * np.array(range(0, Ntri), dtype=int)
+    cells[1:Ntri + 1, 0] = 1 + Nwall + 3 * np.array(range(0, Ntri), dtype=int)
     cells[1:Ntri + 1, 1] = 3
-    cells[1:Ntri + 1, 2] = 5
+    cells[1:Ntri + 1, 2] = 3
 
     cells[1:Nplasma + 1, 3] = np.array(range(1, Nplasma + 1), dtype=int)
     # now comes the wall zones
@@ -297,14 +294,11 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', create_aux_file
     # ------------------------- Boundaries ------------------------------------ #
     boundaries = np.zeros(nboundaries, dtype=int)
     for i in range(0, Ntri):
-        bdy_start = Nwall + i*5
-        cut_start = Nedge + 2*i
+        bdy_start = Nwall + i*3
 
         boundaries[bdy_start:bdy_start + 3] = [(face2edge_map[i,0] + 1) * face2edge_map[i,1],
                                                (face2edge_map[i,2] + 1) * face2edge_map[i,3],
                                                (face2edge_map[i,4] + 1) * face2edge_map[i,5]]
-        # todo check this: we may have different indices
-        boundaries[bdy_start + 3:bdy_start + 5] = [cut_start + 1, cut_start + 2]
 
     # fill edges of the universal cell
     boundaries[0:Nwall] = np.sign(boundary_edge_ids) * (np.abs(boundary_edge_ids) + 1)
@@ -312,7 +306,7 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', create_aux_file
     boundaries_var[:] = boundaries
 
     # ------------------------ Surfaces ------------------------------------ #
-    surfaces = np.zeros([Nsurf_tot, 2, 2], dtype=int)
+    surfaces = np.zeros([Nedge, 2, 2], dtype=int)
     # pointers uses 0 based indexing
     surfaces[:Nedge, 0, 0] = 1 + 2*np.arange(Nedge)
     surfaces[:Nedge, 0, 1] = 0 + 2*np.arange(Nedge)
@@ -331,12 +325,6 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', create_aux_file
         else:
             raise RuntimeError(f"pos_face={pos_face}, neg_face={neg_face} is not correct!")
 
-    # may not be needed
-    for i in range(Nedge, Nsurf_tot):
-        # Cut surfaces are not faces at all
-        surfaces[i, 0, :] = surfaces[i - 1, 0, :]
-        surfaces[i, 1, :] = 0
-
     surfaces_var[:] = surfaces
 
 
@@ -349,7 +337,7 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', create_aux_file
 
     # --------------------- Surface Coefficients ------------------------------ #
     # TODO Create a better documentation of the coeffs
-    surface_coeffs = np.zeros([Nsurf_tot, 11])
+    surface_coeffs = np.zeros([Nedge, 11])
     # -b ^ 2 for a cone, -R ^ 2 for a cylinder, -Z0 for a plane
     surface_coeffs[:Nedge, 0] = edge_coefficients[:, 3]
     # b = 0 for a cylinder, 1/2 for a plane, and intercept for a cone
@@ -361,12 +349,6 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', create_aux_file
     surface_coeffs[:Nedge, 6] = edge_coefficients[:, 1]
     # cone up or down direction flag
     surface_coeffs[:Nedge, 10] = edge_coefficients[:, 4]
-
-    # Cut faces
-    surface_coeffs[Nedge:Nsurf_tot:2, 0] = - (- GEOM_TOL + cell_bounding_boxes[1::4])
-    surface_coeffs[Nedge+1:Nsurf_tot:2, 0] = (GEOM_TOL + cell_bounding_boxes[3::4])
-    surface_coeffs[Nedge:Nsurf_tot:2, 3] = 1.0
-    surface_coeffs[Nedge+1:Nsurf_tot:2, 3] = -1.0
 
     surface_coeffs_var[:] = surface_coeffs
 
@@ -426,7 +408,7 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', create_aux_file
     zone_pointer_var[:] = zone_pointer
 
     # ----------------------- Surface Points ------------------------------ #
-    surface_points = np.zeros([Nsurf_tot, 2, 3])
+    surface_points = np.zeros([Nedge, 2, 3])
     surface_points[0:Nedge, :, 0] = edge_coordinates[0:Nedge*4:2].reshape((Nedge, 2))
     surface_points[0:Nedge, :, 2] = edge_coordinates[1:Nedge*4:2].reshape((Nedge, 2))
     surface_points_var[:] = surface_points
@@ -470,7 +452,7 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', create_aux_file
     sectors_var[:] = sectors
 
 
-    surface_sectors = np.zeros([Nsurf_tot, 2, 2], dtype=int)
+    surface_sectors = np.zeros([Nedge, 2, 2], dtype=int)
 
     # the real edges (not cut surfaces) will have sectors associated
     current_sector_pointer = 1
@@ -484,10 +466,6 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', create_aux_file
             surface_sectors[i, 0, 0] = current_sector_pointer
             surface_sectors[i, 0, 1] = current_sector_pointer + 1
             current_sector_pointer += 2
-
-    # cut surfaces don't have sectors associated
-    surface_sectors[Nedge:, 1, :] = 0
-    surface_sectors[Nedge:, 0, :] = current_sector_pointer
 
     surface_sectors_var[:] = surface_sectors
 
@@ -611,7 +589,7 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', create_aux_file
     zone_type_num[2] = num_zones - Nplasma + 1
     zone_type_num_var[:] = zone_type_num
 
-    surfaces_tx_ind = np.zeros([Nsurf_tot, 2, 2], dtype=int)
+    surfaces_tx_ind = np.zeros([Nedge, 2, 2], dtype=int)
     surfaces_tx_mx = DBL_UNUSED * np.ones([1, 4, 3])
     surfaces_tx_ind_var[:] = surfaces_tx_ind
     surfaces_tx_mx_var[:] = surfaces_tx_mx
