@@ -34,7 +34,6 @@ Omega_h::LOs get_wall_edge_ids(Omega_h::Mesh *mesh) {
   Omega_h::fence();
 
   int num_wall_edges = Omega_h::get_sum(Omega_h::Read(wall_edge_marks));
-  printf("Number of wall edges: %d\n", num_wall_edges);
   int num_wall_points = Omega_h::get_sum(
       mesh->get_tag<Omega_h::LO>(Omega_h::VERT, "isOnWall")->array());
   OMEGA_H_CHECK_PRINTF(num_wall_edges == num_wall_points,
@@ -69,7 +68,6 @@ Omega_h::LOs get_wall_adjacent_triangles(Omega_h::Mesh *mesh) {
   const auto edge2faceFace = edge2face.ab2b;
   const auto edge2faceOffset = edge2face.a2ab;
   const Omega_h::LOs wall_edges = get_wall_edge_ids(mesh);
-  printf("Number of wall edges: %d\n", wall_edges.size());
 
   Omega_h::Write<Omega_h::LO> wall_adjacent_triangles_w(
       2 * wall_edges.size(), "wall_adjacent_triangles");

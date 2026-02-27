@@ -269,7 +269,6 @@ class OmegaHMesh:
 
 
         num_first_wall_points = np.sum(self.get_integer_tag_array(0, "isOnWall"))
-        print(f"Wall adjacent triangles: {num_first_wall_points}")
         wall_adjacent_triangles = np.empty(2*num_first_wall_points, dtype=np.int32)
 
         try:

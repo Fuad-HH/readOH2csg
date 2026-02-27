@@ -358,7 +358,7 @@ def convert2degas2(mesh_filename, netcdf_filename='geometry.nc', create_aux_file
     zone_center[0:Nplasma, 2] = centroids[0:Nplasma, 1]
     # they do specify it with the first cells centroid we are doing it with the last
     # for this zone
-    assert cells[-1, 3] == num_zones + 1, f"The next 2 lines won't work if this assertion fails."
+    assert cells[-1, 3] == num_zones + 1, f"The next 2 lines won't work if this assertion fails. {cells[-1,3]=}, {num_zones=}"
     zone_center[-1, 0] = centroids[-1, 0]
     zone_center[-1, 2] = centroids[-1, 1]
     # wall adjacent zones
