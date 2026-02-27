@@ -53,3 +53,17 @@ namespaces = true
 convert2openmc = "omegah2csg.convert2openmc.convert2openmc_cli:app"
 convert2degas2 = "omegah2csg.convert2degas2.convert2degas2_cli:app"
 
+
+[tool.ruff]
+include = ["pyproject.toml", "pythonAPI/omegah2csg/**/*.py", "tests/**/*.py"]
+line-length = 88
+indent-width = 4
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+docstring-code-format = true
+docstring-code-line-length = "dynamic"
+

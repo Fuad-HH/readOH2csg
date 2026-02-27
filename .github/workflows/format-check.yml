@@ -35,21 +35,20 @@ jobs:
           fi
           echo "All C/C++ files are properly formatted"
 
-  cmake-format-check:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
 
-      - name: Install cmake-format
+      - name: Install cmake-format and ruff
         run: |
           pip install PyYAML cmake-format==0.6.11
+          pip install ruff
+
+      - name: Check Python Format Run Ruff Format
+        run: |
+          ruff format --diff
+          ruff format --check
 
       - name: Check CMake code format
         run: |
