@@ -242,7 +242,8 @@ extern "C" void capi_compute_edge_coefficients(OmegaHMesh oh_mesh, int size,
 extern "C" bool capi_is_mesh_bounded_by_box(OmegaHMesh oh_mesh) {
   // check based on if the is_on_wall array is present
   auto mesh = reinterpret_cast<Omega_h::Mesh *>(oh_mesh.pointer);
-  const bool has_box = mesh->has_tag(Omega_h::FACE, "offset_face") && mesh->has_tag(Omega_h::VERT, "isOnWall");
+  const bool has_box = mesh->has_tag(Omega_h::FACE, "offset_face") &&
+                       mesh->has_tag(Omega_h::VERT, "isOnWall");
   return has_box;
 }
 
