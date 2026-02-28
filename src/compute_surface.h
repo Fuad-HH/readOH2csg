@@ -8,8 +8,8 @@
 #ifndef OMEGA_H_READ_COMPUTE_SURFACE_H
 #define OMEGA_H_READ_COMPUTE_SURFACE_H
 
-#include <Omega_h_mesh.hpp>
 #include <Omega_h_filesystem.hpp>
+#include <Omega_h_mesh.hpp>
 
 void read_cli(int argc, char **argv, Omega_h::Library &lib, bool &print_flag,
               Omega_h::filesystem::path &mesh_filename);

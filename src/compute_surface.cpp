@@ -5,10 +5,10 @@
 #include "compute_surface.h"
 
 #include <Omega_h_array_ops.hpp>
+#include <Omega_h_cmdline.hpp>
 #include <Omega_h_fence.hpp>
 #include <Omega_h_for.hpp>
 #include <Omega_h_mark.hpp>
-#include <Omega_h_cmdline.hpp>
 
 void read_cli(int argc, char **argv, Omega_h::Library &lib, bool &print_flag,
               Omega_h::filesystem::path &mesh_filename) {
