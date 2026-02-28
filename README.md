@@ -34,6 +34,11 @@ pip install netCDF4==1.7.2
 ```bash
 pip install https://github.com/Fuad-HH/readOH2csg/releases/download/v0.0.1-alpha/omegah2csg-0.0.1-py3-none-any.whl omegah2csg
 ```
+or
+```bash
+pip install -i https://test.pypi.org/simple/ omegah2csg
+```
+
 4. Try running the CLI tool, and it should print the help message:
 ```bash
 convert2degas2 --help
