@@ -1,4 +1,8 @@
 # Convert `Omega_h` Mesh to CSG Format
+[![License](https://img.shields.io/badge/license-BSD--3--Clause-02B36C)](https://github.com/Fuad-HH/readOH2csg/blob/parallel/LICENSE)
+[![GitHub Actions build status (Linux)](https://github.com/Fuad-HH/readOH2csg/actions/workflows/ci.yml/badge.svg?branch=parallel)](https://github.com/Fuad-HH/readOH2csg/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/Fuad-HH/readOH2csg?include_prereleases
+)](https://github.com/Fuad-HH/readOH2csg/releases)
 
 Efficiently convert Tokamak mesh from `Omega_h` format
 to Constructive Solid Geometry (CSG). It supports creating
