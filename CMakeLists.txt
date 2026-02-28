@@ -18,22 +18,11 @@ file(RELATIVE_PATH relDir ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_INSTALL_BINDIR}
 set(CMAKE_INSTALL_RPATH $ORIGIN $ORIGIN/${relDir})
 
 # =================== DEPENDENCIES ===================
-# Temporary solution if PKG_CONFIG_PATH is not set in the environment It should
-# search CMAKE_PREFIX_PATH but currently it is not searching there for some
-# reason
-if(DEFINED NETCDF_CXX4_PKG_PATH AND DEFINED NETCDF_C_PKG_PATH)
-  set(ENV{PKG_CONFIG_PATH}
-      "${NETCDF_CXX4_PKG_PATH}:$ENV{PKG_CONFIG_PATH}:${NETCDF_C_PKG_PATH}")
-endif()
-
-find_package(PkgConfig REQUIRED)
 find_package(Omega_h REQUIRED)
 
 if(NOT Omega_h_USE_Kokkos)
   message(FATAL_ERROR "Omega_h must be built with Kokkos support enabled.")
 endif()
-
-pkg_check_modules(netcdf-cxx4 REQUIRED IMPORTED_TARGET netcdf-cxx4)
 
 # =================== BUILD TARGETS ===================
 # Always create only one library libomegah2csg
@@ -54,13 +43,7 @@ add_library(omegah2csg ${omegah2csg_SOURCES})
 target_include_directories(
   omegah2csg PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
                     $<INSTALL_INTERFACE:include>)
-target_link_libraries(omegah2csg PUBLIC Omega_h::omega_h PkgConfig::netcdf-cxx4)
-
-add_executable(readOH src/readOH.cc)
-target_link_libraries(readOH PRIVATE Omega_h::omega_h PkgConfig::netcdf-cxx4)
-
-add_executable(get_adj_info src/get_adj_info.cc)
-target_link_libraries(get_adj_info PRIVATE omegah2csg)
+target_link_libraries(omegah2csg PUBLIC Omega_h::omega_h)
 
 # =================== Python Package ===================
 if(omegah2csg_ENABLE_PYTHON)
@@ -85,7 +68,7 @@ configure_package_config_file(
   INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/omegah2csg)
 
 install(
-  TARGETS readOH get_adj_info omegah2csg
+  TARGETS omegah2csg
   EXPORT omegah2csg-targets
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}

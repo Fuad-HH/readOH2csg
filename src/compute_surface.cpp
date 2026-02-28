@@ -8,6 +8,33 @@
 #include <Omega_h_fence.hpp>
 #include <Omega_h_for.hpp>
 #include <Omega_h_mark.hpp>
+#include <Omega_h_cmdline.hpp>
+
+void read_cli(int argc, char **argv, Omega_h::Library &lib, bool &print_flag,
+              Omega_h::filesystem::path &mesh_filename) {
+  Omega_h::CmdLine cmdline;
+  auto &mesh_flag = cmdline.add_flag("--mesh", "Input mesh (.osh) file path");
+  mesh_flag.add_arg<std::string>("mesh_filename");
+  cmdline.add_flag("--print", "Print details");
+  if (!cmdline.parse_final(lib.world(), &argc, argv)) {
+    throw std::runtime_error("Error in command line parsing");
+  }
+  if (!cmdline.parsed("--mesh")) {
+    cmdline.show_help(argv);
+    throw std::runtime_error("Error parsing command line arguments");
+  }
+  if (!cmdline.parsed("--print")) {
+    print_flag = false;
+  } else {
+    print_flag = true;
+  }
+  mesh_filename = cmdline.get<std::string>("--mesh", "mesh_filename");
+  if (!exists(mesh_filename)) {
+    const std::string msg =
+        "Mesh file " + mesh_filename.string() + " not found";
+    throw std::runtime_error(msg);
+  }
+}
 
 Omega_h::LOs get_wall_edge_ids(Omega_h::Mesh *mesh) {
   const auto offset_face =
