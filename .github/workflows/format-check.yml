@@ -49,6 +49,7 @@ jobs:
         run: |
           ruff format --diff
           ruff format --check
+          ruff check --output-format=github .
 
       - name: Check CMake code format
         run: |

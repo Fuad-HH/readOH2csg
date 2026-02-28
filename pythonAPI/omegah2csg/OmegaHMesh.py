@@ -3,7 +3,8 @@ from ctypes import c_void_p, c_char_p, Structure, c_int, c_bool, c_double
 import numpy as np
 from numpy.ctypeslib import ndpointer
 
-from . import _dll, kokkos_runtime
+from ._lib import _dll
+from .config import kokkos_runtime
 import os
 
 

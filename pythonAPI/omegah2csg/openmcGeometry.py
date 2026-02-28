@@ -9,12 +9,12 @@ This module provides bindings to C/C++ functions defined in the C++ library.
 import numpy as np
 from numpy.ctypeslib import ndpointer
 import openmc
-from enum import Enum
 from typing import Tuple
 
 from .OmegaHMesh import OmegaHMeshPointer, OmegaHMesh
 from ctypes import c_int, c_double, c_bool
-from . import _dll, kokkos_runtime
+from ._lib import _dll
+from .config import kokkos_runtime
 
 _dll.capi_compute_edge_coefficients.restype = None
 _dll.capi_compute_edge_coefficients.argtypes = [

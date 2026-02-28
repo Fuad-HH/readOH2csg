@@ -1,0 +1,6 @@
+# First time ruff formatting
+8430cf69437424ec5a139c50c351bd9feebbda3c
+
+# Not including the linting changes (this commit)
+# it changed code that may effect functionality
+

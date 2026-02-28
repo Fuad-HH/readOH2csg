@@ -33,7 +33,7 @@ def test_get_line_equation():
     m, c, up = get_line_equation(p1, p2)
     assert np.isclose(m, 1)
     assert np.isclose(c, 0)
-    assert up == True
+    assert up
 
 
 def test_create_surface_cone():
@@ -41,25 +41,25 @@ def test_create_surface_cone():
     p2 = (2, 2)
 
     cone = create_openmc_surface(p1, p2, 1e-6)
-    assert type(cone) == openmc.model.ZConeOneSided
+    assert type(cone) is openmc.model.ZConeOneSided
     disambiguation_surface = cone.plane
     assert np.isclose(disambiguation_surface.z0, 0.0)
-    assert cone.up == True
+    assert cone.up
 
     p1 = (1, 1)
     p2 = (2, 3)
 
     cone = create_openmc_surface(p1, p2, 1e-6)
-    assert type(cone) == openmc.model.ZConeOneSided
+    assert type(cone) is openmc.model.ZConeOneSided
     disambiguation_surface = cone.plane
     assert np.isclose(disambiguation_surface.z0, -1.0)
-    assert cone.up == True
+    assert cone.up
 
     p1 = (1, 1)
     p2 = (2, -1)
 
     cone = create_openmc_surface(p1, p2, 1e-6)
-    assert type(cone) == openmc.model.ZConeOneSided
+    assert type(cone) is openmc.model.ZConeOneSided
     disambiguation_surface = cone.plane
     assert np.isclose(disambiguation_surface.z0, 3.0)
-    assert cone.up == False
+    assert not cone.up

@@ -51,7 +51,6 @@ def write_nodes_to_file(node_coords, wallfile_name="wallfile.txt"):
 def write_dummy_bg_files_aux(nzone, nwall_input, stratum_start):
     nwallsegs = nwall_input
     nperline = 10
-    stratum = nzone + 2
 
     f = open("plasmafile.txt", "w")
     f.write("%10s %10s %10s %10s %10s\n" % ("zone", "T(1)", "N(1)", "T(2)", "N(2)"))
@@ -94,7 +93,6 @@ def convert2degas2(
         )
         Ntri = face2edge_map.shape[0]  # ncells
         boundary_face_flag = mesh.get_boundary_face_flag()
-        num_node = mesh.num_entities(0)
         cell_bounding_boxes = mesh.get_cell_bounding_boxes()
         tri_volumes = mesh.get_cell_volumes()
         centroids = mesh.get_cell_centroids().reshape((Ntri, 2))
@@ -131,41 +129,41 @@ def convert2degas2(
     # ---------------------------------- Dimensions ------------------------------------------------- #
     # *********************************************************************************************** #
 
-    vector = root_g.createDimension("vector", 3)
-    string = root_g.createDimension("string", 300)
-    cell_info_ind = root_g.createDimension("cell_info_ind", 4)
-    cell_ind = root_g.createDimension("cell_ind", Ntri + 1)
-    surface_ind = root_g.createDimension("surface_ind", Nedge)
-    boundary_ind = root_g.createDimension("boundary_ind", nboundaries)
-    neighbor_ind = root_g.createDimension("neighbor_ind", nneighbors + 1)
-    neg_pos = root_g.createDimension("neg_pos", 2)
-    surface_info_ind = root_g.createDimension("surface_info_ind", 2)
-    surface_tx_ind = root_g.createDimension("surface_tx_ind", 2)
-    tx_ind_1 = root_g.createDimension("tx_ind_1", 3)
-    tx_ind_2 = root_g.createDimension("tx_ind_2", 4)
-    transform_ind = root_g.createDimension("transform_ind", 1)
-    coeff_ind = root_g.createDimension("coeff_ind", 11)
-    zone_type_ind = root_g.createDimension("zone_type_ind", 4)
-    zone_index_ind = root_g.createDimension("zone_index_ind", 4)
-    zone_ind = root_g.createDimension("zone_ind", num_zones + 1)
-    sector_ind = root_g.createDimension("sector_ind", nsectors + 1)
-    sector_neg_pos_ind = root_g.createDimension("sector_neg_pos_ind", 2)
-    sector_type_ind = root_g.createDimension("sector_type_ind", 17)
-    vacuum_ind = root_g.createDimension("vacuum_ind", 1)
-    plasma_ind = root_g.createDimension("plasma_ind", num_first_wall_points + 1)
-    target_ind = root_g.createDimension("target_ind", num_first_wall_points + 1)
-    wall_ind = root_g.createDimension("wall_ind", 1)
-    exit_ind = root_g.createDimension("exit_ind", 1)
-    sc_diag_name_string = root_g.createDimension("sc_diag_name_string", 40)
-    diag_grp_ind = root_g.createDimension("diag_grp_ind", 4)
-    sc_diag_ind = root_g.createDimension("sc_diag_ind", 3 * num_first_wall_points)
-    de_symbol_string = root_g.createDimension("de_symbol_string", 24)
-    de_name_string = root_g.createDimension("de_name_string", 100)
-    de_grp_ind = root_g.createDimension("de_grp_ind", 1)
-    de_zone_frags_ind = root_g.createDimension("de_zone_frags_ind", 100)
-    de_tot_view_ind = root_g.createDimension("de_tot_view_ind", 1)
-    de_start_end_ind = root_g.createDimension("de_start_end_ind", 2)
-    de_view_ind = root_g.createDimension("de_view_ind", 1)
+    root_g.createDimension("vector", 3)
+    root_g.createDimension("string", 300)
+    root_g.createDimension("cell_info_ind", 4)
+    root_g.createDimension("cell_ind", Ntri + 1)
+    root_g.createDimension("surface_ind", Nedge)
+    root_g.createDimension("boundary_ind", nboundaries)
+    root_g.createDimension("neighbor_ind", nneighbors + 1)
+    root_g.createDimension("neg_pos", 2)
+    root_g.createDimension("surface_info_ind", 2)
+    root_g.createDimension("surface_tx_ind", 2)
+    root_g.createDimension("tx_ind_1", 3)
+    root_g.createDimension("tx_ind_2", 4)
+    root_g.createDimension("transform_ind", 1)
+    root_g.createDimension("coeff_ind", 11)
+    root_g.createDimension("zone_type_ind", 4)
+    root_g.createDimension("zone_index_ind", 4)
+    root_g.createDimension("zone_ind", num_zones + 1)
+    root_g.createDimension("sector_ind", nsectors + 1)
+    root_g.createDimension("sector_neg_pos_ind", 2)
+    root_g.createDimension("sector_type_ind", 17)
+    root_g.createDimension("vacuum_ind", 1)
+    root_g.createDimension("plasma_ind", num_first_wall_points + 1)
+    root_g.createDimension("target_ind", num_first_wall_points + 1)
+    root_g.createDimension("wall_ind", 1)
+    root_g.createDimension("exit_ind", 1)
+    root_g.createDimension("sc_diag_name_string", 40)
+    root_g.createDimension("diag_grp_ind", 4)
+    root_g.createDimension("sc_diag_ind", 3 * num_first_wall_points)
+    root_g.createDimension("de_symbol_string", 24)
+    root_g.createDimension("de_name_string", 100)
+    root_g.createDimension("de_grp_ind", 1)
+    root_g.createDimension("de_zone_frags_ind", 100)
+    root_g.createDimension("de_tot_view_ind", 1)
+    root_g.createDimension("de_start_end_ind", 2)
+    root_g.createDimension("de_view_ind", 1)
     print("Dimensions created. Now creating variables...")
 
     # *********************************************************************************************** #
@@ -733,7 +731,6 @@ def convert2degas2(
     de_view_size = 1
     de_grps = 0
     de_max_bins = 0
-    de_zone_fragment_dim = 100
     de_zone_frags_size = 0
     de_zone_frags_ind = 100
     detector_total_views = 0
@@ -828,7 +825,6 @@ def convert2degas2(
     )
     strata_var[:] = strata
 
-    detector_name = [STR_UNUSED] * (de_grps + 1)
     detector_num_views = INT_UNUSED * np.ones(shape=de_grps + 1, dtype=int)
     detector_var = INT_UNUSED * np.ones(de_grps + 1, dtype=int)
     detector_tab_index = INT_UNUSED * np.ones(de_grps + 1, dtype=int)

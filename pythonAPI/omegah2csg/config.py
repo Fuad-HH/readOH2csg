@@ -1,4 +1,4 @@
-from . import _dll
+from ._lib import _dll
 
 
 class KokkosRuntime:

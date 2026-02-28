@@ -32,7 +32,7 @@ def test_read_from_file():
         face_connectivity_filename
     )
 
-    with OmegaHMesh(parent_directory / f"assets/6elem.osh") as mesh:
+    with OmegaHMesh(parent_directory / "assets/6elem.osh") as mesh:
         [edge_coefficients_api, boundary_edge_ids_api, face_connectivity_api] = (
             get_all_geometry_info(mesh)
         )
@@ -66,7 +66,7 @@ def test_read_from_file():
 
 
 def test_all_gemetry_info():
-    with OmegaHMesh(parent_directory / f"assets/6elem.osh") as mesh:
+    with OmegaHMesh(parent_directory / "assets/6elem.osh") as mesh:
         [edge_coefficients, boundary_edge_ids, face_connctivity] = (
             get_all_geometry_info(mesh)
         )
@@ -84,7 +84,7 @@ def test_all_gemetry_info():
 
 
 def test_create_openmc_universe():
-    with OmegaHMesh(parent_directory / f"assets/6elem.osh") as mesh:
+    with OmegaHMesh(parent_directory / "assets/6elem.osh") as mesh:
         universe = create_openmc_geometry(mesh)
         geom = openmc.Geometry(universe)
         geom.export_to_xml()
@@ -92,7 +92,7 @@ def test_create_openmc_universe():
 
 def test_edge_and_face_coefficients():
     tol = 1e-10
-    with OmegaHMesh(parent_directory / f"assets/6elem.osh") as mesh:
+    with OmegaHMesh(parent_directory / "assets/6elem.osh") as mesh:
         edge_coefficients = get_edge_coefficients(mesh, tol=tol)
         boundary_edge_ids = get_boundary_edge_ids(mesh)
         n_faces = mesh.num_entities(2)

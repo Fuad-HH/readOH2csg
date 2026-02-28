@@ -161,7 +161,7 @@ def test_small_netcdf_write():
     The tests if the netcdf installation (python) is working on the current platform.
     """
     root_g = nc.Dataset("test.nc", mode="w", format="NETCDF4")
-    vector = root_g.createDimension("vector", 3)
+    root_g.createDimension("vector", 3)
     integer_scalar_var = root_g.createVariable("int_scalar", "i4", ())
 
     vector_var = root_g.createVariable("vector_var", "f8", ("vector",))
