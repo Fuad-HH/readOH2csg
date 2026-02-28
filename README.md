@@ -14,10 +14,10 @@ CSG representation in
 ## Installation
 
 ### 1. Pre-built Wheel
-This is the recommended way to install this package. We provide pre-built wheels for Python. Follow these steps to install the latest version of `readOH2csg` using pip:
+This is the recommended way to install this package. We provide a pre-built wheel (`Kokkos` with `OpenMP` backend) for Python. Follow these steps to install the latest version of `readOH2csg` using pip:
 
-1. On any linux system, make sure you have Python (Version ≥ 3.11) installed. Go to the terminal
-and `cd` to the directory where you want to install `readOH2csg` environment.
+1. On any Linux system, make sure you have Python (Version ≥ 3.11) installed. Go to the terminal
+and `cd` to the directory where you want to install the Python virtual environment.
 ```bash
 python -m venv readoh2csg-env # or any name you prefer
 source readoh2csg-env/bin/activate
@@ -34,7 +34,7 @@ pip install netCDF4==1.7.2
 ```bash
 pip install https://github.com/Fuad-HH/readOH2csg/releases/download/v0.0.1-alpha/omegah2csg-0.0.1-py3-none-any.whl omegah2csg
 ```
-4. Try running the CLI tool and it should print the help message:
+4. Try running the CLI tool, and it should print the help message:
 ```bash
 convert2degas2 --help
 ```
@@ -47,7 +47,7 @@ with [`Kokkos`](https://github.com/kokkos/kokkos) and it supports any [`Kokkos`]
 Follow these steps to build and install `readOH2csg` from source:
 1. Make sure you have compilers (at least `g++` or some alternative), `Python` (Version ≥ 3.11), and `CMake` available.
 1. Install [`Kokkos`](https://github.com/kokkos/kokkos) following the instructions in
-[Kokkos Build Documentation](https://kokkos.org/kokkos-core-wiki/get-started/building-from-source.html#configuring-and-building-kokkos). You can choose any backend supported. Here's an example for building with `OpenMP` backend:
+[Kokkos Build Documentation](https://kokkos.org/kokkos-core-wiki/get-started/building-from-source.html#configuring-and-building-kokkos). You can choose any backend supported. Here's an example for building with the `OpenMP` backend:
 ```bash
 git clone --depth=2 --branch 4.7.02 https://github.com/kokkos/kokkos.git
 cd kokkos
@@ -91,10 +91,10 @@ cmake -S . -B build \
 cmake --build build -j4 --target install
 ```
 >[!WARNING]
-> For now, only the Python API and CLI works. Please do not turn off building for python bidnings. It is
+> For now, only the Python API and CLI work. Please do not turn off the option for Python bindings. It is
 > enabled by default.
 
-5. Try running the CLI tool and it should print the help message:
+5. Try running the CLI tool, and it should print the help message:
 ```bash
 convert2degas2 --help
 ```
@@ -102,8 +102,14 @@ convert2degas2 --help
 ## Usage
 Check an example case in [`tests/assets/simple_degas2_case/degas2-case`](tests/assets/simple_degas2_case/degas2-case/). Please read the [`README.md`](tests/assets/simple_degas2_case/degas2-case/README.md) file first for detailed instructions on how to run the example case.
 
-To run `OpenMC` example, running `convert2openmc <mesh-name>` will generate the `geometry.xml` file and
+To run an `OpenMC` example, running `convert2openmc <mesh-name>` will generate the `geometry.xml` file and,
 run the case following [OpenMC Documentation](https://docs.openmc.org).
+
+>[!TIP]
+> If `omegah2csg` was installed with `Kokkos` `OpenMP` backend or using `pip`, try setting `OpenMP` environment variables for faster execution.
+> ```bash
+> export OMP_PROC_BIND=spread && export OMP_PLACES=threads && export OMP_NUM_THREADS=<number of threads you want>
+> ```
 
 ## Documentation
 More details on strategies, logic, and math are included in the [`doc/`](doc/) directory.
