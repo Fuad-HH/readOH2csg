@@ -1,19 +1,11 @@
 from .config import KokkosRuntime, kokkos_runtime
-from .OmegaHMesh import OmegaHMesh
-from .openmcGeometry import (
-    is_horizontal,
-    is_vertical,
-    get_slope,
-    get_vertical_intersection,
-    get_line_equation,
-    is_cone,
-    create_z_cone,
-    create_z_plane,
-    create_z_cylinder,
-    create_openmc_surface,
-    create_openmc_geometry,
+from .OmegaHMesh import (
+    OmegaHMesh,
     read_edge_coefficients_from_file,
     read_face_connectivity_from_file,
+)
+from .convert2openmc import (
+    convert2openmc,
 )
 from .convert2degas2 import convert2degas2
 
@@ -23,20 +15,10 @@ __all__ = [
     "kokkos_runtime",
     # mesh
     "OmegaHMesh",
-    # geometry helpers
-    "is_horizontal",
-    "is_vertical",
-    "get_slope",
-    "get_vertical_intersection",
-    "get_line_equation",
-    "is_cone",
-    "create_z_cone",
-    "create_z_plane",
-    "create_z_cylinder",
-    "create_openmc_surface",
-    "create_openmc_geometry",
     "read_edge_coefficients_from_file",
     "read_face_connectivity_from_file",
+    # openmc
+    "convert2openmc",
     # degas2
     "convert2degas2",
 ]

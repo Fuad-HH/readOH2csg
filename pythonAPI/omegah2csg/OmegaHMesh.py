@@ -461,3 +461,56 @@ class OmegaHMesh:
             boundary_edge_ids,
             face_connctivity.reshape(n_faces, 6),
         )
+
+
+def read_edge_coefficients_from_file(filename):
+    with open(filename, "r") as f:
+        data = f.readlines()
+        n_edges = len(data) - 2
+
+        # this file has first 5 coefficients
+        edge_coefficients = np.zeros((n_edges, 6), dtype=np.float64)
+
+        for i in range(n_edges):
+            values = data[i].split()
+            assert len(values) == 6, f"Length of edge_coefficients is not 6: {values}"
+
+            edge_id = int(values[0])
+            assert edge_id == i, f"Edge id is not {i}, edge id {edge_id}"
+
+            # fill the 5 coefficients
+            edge_coefficients[edge_id, 0] = np.float64(values[1])
+            edge_coefficients[edge_id, 1] = np.float64(values[2])
+            edge_coefficients[edge_id, 2] = np.float64(values[3])
+            edge_coefficients[edge_id, 3] = np.float64(values[4])
+            edge_coefficients[edge_id, 4] = np.float64(values[5])
+
+        boundary_edges_line = data[-2].split()
+        assert len(boundary_edges_line) == 3
+        num_boundary_edges = int(boundary_edges_line[-1])
+        boundary_edge_ids = np.zeros(num_boundary_edges, dtype=np.int32)
+
+        boundary_edge_ids_line = data[-1].split()
+        assert len(boundary_edge_ids_line) == num_boundary_edges
+        for i in range(num_boundary_edges):
+            boundary_edge_ids[i] = int(boundary_edge_ids_line[i])
+
+    return edge_coefficients, boundary_edge_ids
+
+
+def read_face_connectivity_from_file(filename):
+    with open(filename, "r") as f:
+        data = f.readlines()
+        n_faces = len(data)
+        connectivity = np.zeros((n_faces, 6), dtype=np.int32)
+
+        for i in range(n_faces):
+            values = data[i].split()
+            assert len(values) == 7
+            face_id = int(values[0])
+            assert face_id == i
+
+            for j in range(6):
+                connectivity[i, j] = np.int32(values[j + 1])
+
+    return connectivity

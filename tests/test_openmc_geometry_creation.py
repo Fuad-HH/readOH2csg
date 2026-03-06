@@ -3,7 +3,7 @@ import openmc
 
 import pandas as pd
 from omegah2csg import OmegaHMesh
-from omegah2csg import create_openmc_geometry
+from omegah2csg.convert2openmc import create_openmc_geometry
 from omegah2csg import read_edge_coefficients_from_file
 from omegah2csg import read_face_connectivity_from_file
 
