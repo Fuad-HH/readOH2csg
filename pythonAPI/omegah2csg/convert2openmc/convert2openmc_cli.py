@@ -1,6 +1,6 @@
 import argparse
 
-from .convert2openmc import convert2openmc
+from .convert2openmc import convert2openmcXML
 
 
 def main():
@@ -11,7 +11,7 @@ def main():
     parser.add_argument("--tol", type=float, help="tolerance", default=1e-10)
     args = parser.parse_args()
 
-    convert2openmc(filename=args.filename, tol=args.tol)
+    convert2openmcXML(filename=args.filename, tol=args.tol)
 
 
 # For setuptools entry point

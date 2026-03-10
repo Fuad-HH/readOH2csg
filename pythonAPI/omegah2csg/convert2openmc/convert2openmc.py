@@ -110,9 +110,29 @@ def create_openmc_surface(p1: Coord, p2: Coord, tol=1e-6):
     raise RuntimeError(f"Error creating surface: {p1} and {p2}")
 
 
-def create_openmc_geometry(
+def create_openmc_universe(
     mesh: OmegaHMesh, materials=None, print_debug=False, tol=1e-6
 ):
+    """Create OpenMC geometry (OpenMC.Universe) from OmegaHMesh by rorating along Z-axis
+
+    Parameters
+    ----------
+    mesh: OmegaHMesh
+        OmegaHMesh object with isOnWall and offset_face tags
+    materials: Any interable of size of number of cells, optional
+        Optional array of OpenMC materials to fill the cells. Size should match number of faces in the mesh.
+        If None, dummy materials will be used to avoid OpenMC errors.
+    print_debug: boo, optional
+        If True, prints edge coefficients and face connectivity for debugging.
+    tol: float, optional
+        Tolerance for determining edge types and connectivity. Should be a small positive number, e.g. 1e-6.
+
+    Returns
+    -------
+    OpenMC.Universe
+        OpenMC Universe object representing the geometry
+
+    """
     if not kokkos_runtime.is_running():
         raise RuntimeError("Kokkos not running...")
 
@@ -145,7 +165,6 @@ def create_openmc_geometry(
                 f"Z2 value {z2[i]} not recognized. Coefficients: {edge_coefficients[i, :]}"
             )
 
-    # this is incorrect as the above is appending
     for edge_id in boundary_edge_ids:
         edges[edge_id].boundary_type = "reflective"
 
@@ -188,11 +207,11 @@ def create_openmc_geometry(
     return universe
 
 
-def convert2openmc(filename, tol):
+def convert2openmcXML(filename, tol):
     assert filename.endswith(".osh")
     assert (tol < 1e-6) and (tol > 0.0)
 
     with OmegaHMesh(filename) as mesh:
-        universe = create_openmc_geometry(mesh=mesh, tol=tol)
+        universe = create_openmc_universe(mesh=mesh, tol=tol)
         geom = openmc.Geometry(universe)
         geom.export_to_xml()

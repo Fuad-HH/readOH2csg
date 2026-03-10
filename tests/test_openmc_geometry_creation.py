@@ -3,7 +3,7 @@ import openmc
 
 import pandas as pd
 from omegah2csg import OmegaHMesh
-from omegah2csg.convert2openmc import create_openmc_geometry
+from omegah2csg.convert2openmc import create_openmc_universe
 from omegah2csg import read_edge_coefficients_from_file
 from omegah2csg import read_face_connectivity_from_file
 from omegah2csg.OmegaHMesh import EdgeType
@@ -118,7 +118,7 @@ def test_all_gemetry_info_16_element_mesh():
 
 def test_create_openmc_universe():
     with OmegaHMesh(parent_directory / "assets/6elem.osh") as mesh:
-        universe = create_openmc_geometry(mesh)
+        universe = create_openmc_universe(mesh)
         geom = openmc.Geometry(universe)
         geom.export_to_xml()
 
