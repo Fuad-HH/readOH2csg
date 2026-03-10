@@ -202,8 +202,10 @@ calculate_face_connectivity(Omega_h::Mesh mesh,
 
 void compute_edge_coefficients(Omega_h::Mesh &mesh,
                                Kokkos::View<double *[6]> edge_coefficients_v,
+                               Kokkos::View<int *> edge_type_v,
                                const bool print_flag, const double tol) {
   assert(edge_coefficients_v.extent(0) == mesh.nedges());
+  assert(edge_type_v.extent(0) == mesh.nedges());
 
   const auto edgeVertices = mesh.ask_down(Omega_h::EDGE, Omega_h::VERT).ab2b;
 
@@ -229,12 +231,15 @@ void compute_edge_coefficients(Omega_h::Mesh &mesh,
     if (std::abs(v1coords[0] - v2coords[0]) < tol) {
       // cylinder surface: x^2 + y^2 - r^2 = 0
       edge_coefficients = {1.0, 0.0, 0.0, -v1coords[0] * v1coords[0], 0, 1.0};
+      edge_type_v(i) = 2;
     } else if (std::abs(v1coords[1] - v2coords[1]) < tol) {
       // z plane: z-z0 = 0
       edge_coefficients = {0.0, 0.0, 1.0, -v1coords[1], 0, 0};
+      edge_type_v(i) = 1;
     } else {
       // compute the coefficients of the line passing through vert1 and vert2
       edge_coefficients = compute_coefficients(v1coords, v2coords);
+      edge_type_v(i) = 3;
     }
 
     // store the coefficients view

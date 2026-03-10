@@ -6,6 +6,7 @@ from omegah2csg import OmegaHMesh
 from omegah2csg.convert2openmc import create_openmc_geometry
 from omegah2csg import read_edge_coefficients_from_file
 from omegah2csg import read_face_connectivity_from_file
+from omegah2csg.OmegaHMesh import EdgeType
 
 from pathlib import Path
 
@@ -29,9 +30,12 @@ def test_read_from_file():
     )
 
     with OmegaHMesh(parent_directory / "assets/6elem.osh") as mesh:
-        [edge_coefficients_api, boundary_edge_ids_api, face_connectivity_api] = (
-            mesh.get_all_geometry_info()
-        )
+        [
+            edge_coefficients_api,
+            edge_types_,
+            boundary_edge_ids_api,
+            face_connectivity_api,
+        ] = mesh.get_all_geometry_info()
 
     # compare boundary edges
     assert boundary_edge_ids_api.ndim == 1
@@ -61,9 +65,9 @@ def test_read_from_file():
             assert face_connectivity_api[i, j] == face_connectivity_file[i, j]
 
 
-def test_all_gemetry_info():
+def test_all_gemetry_info_6element_mesh():
     with OmegaHMesh(parent_directory / "assets/6elem.osh") as mesh:
-        [edge_coefficients, boundary_edge_ids, face_connctivity] = (
+        [edge_coefficients, edge_types, boundary_edge_ids, face_connctivity] = (
             mesh.get_all_geometry_info()
         )
         print(pd.DataFrame(edge_coefficients))
@@ -78,6 +82,39 @@ def test_all_gemetry_info():
     assert face_connctivity.shape[0] == 6
     assert face_connctivity.shape[1] == 6
 
+    n_cones = 10
+    n_cylinders = 3
+    n_planes = 0
+    assert np.sum(edge_types == EdgeType.Z_CONE) == n_cones
+    assert np.sum(edge_types == EdgeType.Z_CYLINDER) == n_cylinders
+    assert np.sum(edge_types == EdgeType.Z_PLANE) == n_planes
+
+
+def test_all_gemetry_info_16_element_mesh():
+    with OmegaHMesh(parent_directory / "assets/16elem.osh") as mesh:
+        [edge_coefficients, edge_types, boundary_edge_ids, face_connctivity] = (
+            mesh.get_all_geometry_info(tol=1e-4)
+        )
+        print(pd.DataFrame(edge_coefficients))
+        print(pd.DataFrame(boundary_edge_ids))
+        print(pd.DataFrame(face_connctivity))
+
+    assert edge_coefficients.shape[0] == 30
+    assert edge_coefficients.shape[1] == 6
+
+    assert boundary_edge_ids.shape[0] == 12
+
+    assert face_connctivity.shape[0] == 16
+    assert face_connctivity.shape[1] == 6
+
+    n_cones = 24
+    n_cylinders = 4
+    n_planes = 2
+    assert n_cones + n_cylinders + n_planes == edge_coefficients.shape[0]
+    assert np.sum(edge_types == EdgeType.Z_CONE) == n_cones
+    assert np.sum(edge_types == EdgeType.Z_CYLINDER) == n_cylinders
+    assert np.sum(edge_types == EdgeType.Z_PLANE) == n_planes
+
 
 def test_create_openmc_universe():
     with OmegaHMesh(parent_directory / "assets/6elem.osh") as mesh:
@@ -89,7 +126,7 @@ def test_create_openmc_universe():
 def test_edge_and_face_coefficients():
     tol = 1e-10
     with OmegaHMesh(parent_directory / "assets/6elem.osh") as mesh:
-        edge_coefficients = mesh.get_edge_coefficients(tol=tol)
+        edge_coefficients, edge_types = mesh.get_edge_coefficients(tol=tol)
         boundary_edge_ids = mesh.get_boundary_edge_ids()
         n_faces = mesh.num_entities(2)
         n_edges = mesh.num_entities(1)
@@ -112,17 +149,13 @@ def test_edge_and_face_coefficients():
     neg_c = edge_coefficients[:, 4]
 
     for i in range(len(intersections)):
-        if abs(m2[i]) < 1e-10:  # zplane
+        if edge_types[i] == EdgeType.Z_PLANE:
             # print("Zplane - id ", int(data[i][0]))
             edges.append(openmc.ZPlane(z0=-neg_c[i]))
-        elif abs(z2[i] + 1) > 1e-10:  # not a cone
+        elif edge_types[i] == EdgeType.Z_CYLINDER:
             # print("Quad - id ", int(data[i][0]))
-            edges.append(
-                openmc.Quadric(
-                    a=m2[i], b=m2[i], c=z2[i], j=intersections[i], k=neg_c[i]
-                )
-            )
-        else:  # cone
+            edges.append(openmc.ZCylinder(r=np.sqrt(-neg_c[i])))
+        elif edge_types[i] == EdgeType.Z_CONE:
             # print("Cone - id ", int(data[i][0]), " flag ", top_bottom_flag[i])
             edges.append(
                 openmc.model.ZConeOneSided(
@@ -130,6 +163,10 @@ def test_edge_and_face_coefficients():
                     r2=1.0 / abs(m2[i]),
                     up=True if top_bottom_flag[i] == 1 else False,
                 )
+            )
+        else:
+            raise RuntimeError(
+                f"Z2 value {z2[i]} not recognized. Coefficients: {edge_coefficients[i, :]}"
             )
 
     assert edge_coefficients.shape[0] == 13

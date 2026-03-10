@@ -6,6 +6,7 @@ from numpy.ctypeslib import ndpointer
 from ._lib import _dll
 from .config import kokkos_runtime
 import os
+from enum import IntEnum
 
 
 # Define C structures
@@ -15,6 +16,12 @@ class OmegaHLibraryPointer(Structure):
 
 class OmegaHMeshPointer(Structure):
     _fields_ = [("pointer", c_void_p)]
+
+
+class EdgeType(IntEnum):
+    Z_PLANE = 1
+    Z_CYLINDER = 2
+    Z_CONE = 3
 
 
 # Define function prototypes
@@ -101,6 +108,7 @@ _dll.capi_compute_edge_coefficients.argtypes = [
     OmegaHMeshPointer,
     c_int,
     ndpointer(c_double),
+    ndpointer(c_int),
     c_bool,
     c_double,
 ]
@@ -128,6 +136,7 @@ _dll.capi_get_all_geometry_info.argtypes = [
     c_int,
     c_int,
     ndpointer(c_double),
+    ndpointer(c_int),
     ndpointer(c_int),
     ndpointer(c_int),
     c_bool,
@@ -357,17 +366,18 @@ class OmegaHMesh:
 
         num_edges = self.num_entities(1)
         coefficients = np.zeros(num_edges * 6, dtype=np.float64)
+        edge_types = np.empty(num_edges, dtype=np.int32)
         size = coefficients.size
 
         try:
             _dll.capi_compute_edge_coefficients(
-                self.mesh, c_int(size), coefficients, print_debug, tol
+                self.mesh, c_int(size), coefficients, edge_types, print_debug, tol
             )
 
         except Exception as exception:
             raise RuntimeError(f"Error computing edge coefficients: {exception}")
 
-        return coefficients.reshape(num_edges, 6)
+        return coefficients.reshape(num_edges, 6), edge_types
 
     def get_num_of_boundary_edges(self) -> int:
         if not kokkos_runtime.is_running():
@@ -404,7 +414,7 @@ class OmegaHMesh:
         n_edges = self.num_entities(1)
 
         if edge_coefficients is None:
-            edge_coefficients = self.get_edge_coefficients()
+            edge_coefficients, edge_types_ = self.get_edge_coefficients()
 
         assert edge_coefficients.shape[0] == n_edges
         assert edge_coefficients.shape[1] == 6
@@ -438,6 +448,7 @@ class OmegaHMesh:
         n_edges = self.num_entities(1)
 
         edge_coefficients = np.zeros(n_edges * 6, dtype=np.float64)
+        edge_types = np.empty(n_edges, dtype=np.int32)
         boundary_edge_ids_num = self.get_num_of_boundary_edges()
         boundary_edge_ids = np.zeros(boundary_edge_ids_num, dtype=np.int32)
         face_connctivity = np.zeros(n_faces * 6, dtype=np.int32)
@@ -448,6 +459,7 @@ class OmegaHMesh:
                 n_edges,
                 n_faces,
                 edge_coefficients,
+                edge_types,
                 boundary_edge_ids,
                 face_connctivity,
                 print_debug,
@@ -458,6 +470,7 @@ class OmegaHMesh:
 
         return (
             edge_coefficients.reshape(n_edges, 6),
+            edge_types,
             boundary_edge_ids,
             face_connctivity.reshape(n_faces, 6),
         )

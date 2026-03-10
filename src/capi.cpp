@@ -17,12 +17,11 @@
 
 #include <cassert>
 
-extern "C" void capi_get_all_geometry_info(OmegaHMesh oh_mesh, int n_edges,
-                                           int n_faces,
-                                           double edge_coefficients[],
-                                           int boundary_edges[],
-                                           int face_connectivity[],
-                                           bool print_debug, const double tol) {
+extern "C" void
+capi_get_all_geometry_info(OmegaHMesh oh_mesh, int n_edges, int n_faces,
+                           double edge_coefficients[], int edge_types[],
+                           int boundary_edges[], int face_connectivity[],
+                           bool print_debug, const double tol) {
   auto mesh = reinterpret_cast<Omega_h::Mesh *>(oh_mesh.pointer);
   if (n_edges != mesh->nedges()) {
     throw std::runtime_error("Error: size of edge_coefficients array does not "
@@ -34,9 +33,11 @@ extern "C" void capi_get_all_geometry_info(OmegaHMesh oh_mesh, int n_edges,
   }
 
   // compute edge coefficients
+  auto edge_types_v = Kokkos::View<int *>("edge_types", mesh->nedges());
   auto edge_coefficients_view =
       Kokkos::View<double *[6]>("edge_coefficients", mesh->nedges());
-  compute_edge_coefficients(*mesh, edge_coefficients_view, print_debug, tol);
+  compute_edge_coefficients(*mesh, edge_coefficients_view, edge_types_v,
+                            print_debug, tol);
 
   // get boundary edge ids
   Omega_h::LOs boundary_edge_ids = get_boundary_edge_ids(*mesh);
@@ -58,6 +59,13 @@ extern "C" void capi_get_all_geometry_info(OmegaHMesh oh_mesh, int n_edges,
     for (int i = 0; i < 6; ++i) {
       edge_coefficients[edge * 6 + i] = host_edge_coefficients(edge, i);
     }
+  }
+
+  // copy edge types to output array
+  auto host_edge_types = Kokkos::create_mirror_view(edge_types_v);
+  Kokkos::deep_copy(host_edge_types, edge_types_v);
+  for (int edge_id = 0; edge_id < host_edge_types.extent(0); ++edge_id) {
+    edge_types[edge_id] = host_edge_types[edge_id];
   }
 
   // copy boundary edge ids to output array
@@ -214,6 +222,7 @@ extern "C" void kokkos_finalize() {
 
 extern "C" void capi_compute_edge_coefficients(OmegaHMesh oh_mesh, int size,
                                                double coefficients[],
+                                               int edge_types[],
                                                const bool print_debug,
                                                const double tol) {
   auto mesh = reinterpret_cast<Omega_h::Mesh *>(oh_mesh.pointer);
@@ -221,7 +230,9 @@ extern "C" void capi_compute_edge_coefficients(OmegaHMesh oh_mesh, int size,
   auto edge_coefficients_view =
       Kokkos::View<double *[6]>("edge_coefficients_view", n_edges);
 
-  compute_edge_coefficients(*mesh, edge_coefficients_view, print_debug, tol);
+  auto edge_types_v = Kokkos::View<int *>("edge_types", n_edges);
+  compute_edge_coefficients(*mesh, edge_coefficients_view, edge_types_v,
+                            print_debug, tol);
   auto host_edge_coefficients_view =
       Kokkos::create_mirror_view(edge_coefficients_view);
   Kokkos::deep_copy(host_edge_coefficients_view, edge_coefficients_view);
@@ -236,6 +247,13 @@ extern "C" void capi_compute_edge_coefficients(OmegaHMesh oh_mesh, int size,
     for (int i = 0; i < 6; ++i) {
       coefficients[edge * 6 + i] = host_edge_coefficients_view(edge, i);
     }
+  }
+
+  // copy edge types to output array
+  const auto host_edge_types = Kokkos::create_mirror_view(edge_types_v);
+  Kokkos::deep_copy(host_edge_types, edge_types_v);
+  for (int edge_id = 0; edge_id < host_edge_types.extent(0); ++edge_id) {
+    edge_types[edge_id] = host_edge_types[edge_id];
   }
 }
 

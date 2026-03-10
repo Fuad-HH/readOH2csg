@@ -10,7 +10,7 @@ import numpy as np
 import openmc
 from typing import Tuple
 
-from ..OmegaHMesh import OmegaHMesh
+from ..OmegaHMesh import EdgeType, OmegaHMesh
 from ..config import kokkos_runtime
 
 
@@ -116,7 +116,7 @@ def create_openmc_geometry(
     if not kokkos_runtime.is_running():
         raise RuntimeError("Kokkos not running...")
 
-    [edge_coefficients, boundary_edge_ids, face_connctivity] = (
+    [edge_coefficients, edge_types, boundary_edge_ids, face_connctivity] = (
         mesh.get_all_geometry_info(print_debug, tol)
     )
     n_edges = mesh.num_entities(1)
@@ -130,11 +130,11 @@ def create_openmc_geometry(
     neg_c = edge_coefficients[:, 3]
 
     for i in range(len(intersections)):
-        if np.abs(m2[i]) < 1e-10:  # zplane
+        if edge_types[i] == EdgeType.Z_PLANE:
             edges[i] = openmc.ZPlane(z0=-neg_c[i])
-        elif np.isclose(z2[i], 0.0) and np.isclose(m2[i], 1.0):  # zcylinder
+        elif edge_types[i] == EdgeType.Z_CYLINDER:
             edges[i] = openmc.ZCylinder(r=np.sqrt(-neg_c[i]))
-        elif int(z2[i]) == -1:  # cone
+        elif edge_types[i] == EdgeType.Z_CONE:
             edges[i] = openmc.model.ZConeOneSided(
                 z0=intersections[i],
                 r2=1.0 / abs(m2[i]),

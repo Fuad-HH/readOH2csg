@@ -87,7 +87,7 @@ def convert2degas2(
         assert mesh.has_boundary_layer, (
             "Degas2 requires mesh to have a boundary layer. Use addBonudaryLayer tool from tomms."
         )
-        [edge_coefficients, boundary_edge_ids, face2edge_map] = (
+        [edge_coefficients, edge_types_, boundary_edge_ids, face2edge_map] = (
             mesh.get_all_geometry_info(tol=tol)
         )
         Ntri = face2edge_map.shape[0]  # ncells
