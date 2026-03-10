@@ -10,7 +10,7 @@ import numpy as np
 import openmc
 from typing import Tuple
 
-from ..OmegaHMesh import OmegaHMesh
+from ..OmegaHMesh import EdgeType, OmegaHMesh
 from ..config import kokkos_runtime
 
 
@@ -110,13 +110,33 @@ def create_openmc_surface(p1: Coord, p2: Coord, tol=1e-6):
     raise RuntimeError(f"Error creating surface: {p1} and {p2}")
 
 
-def create_openmc_geometry(
+def create_openmc_universe(
     mesh: OmegaHMesh, materials=None, print_debug=False, tol=1e-6
 ):
+    """Create OpenMC geometry (OpenMC.Universe) from OmegaHMesh by rorating along Z-axis
+
+    Parameters
+    ----------
+    mesh: OmegaHMesh
+        OmegaHMesh object with isOnWall and offset_face tags
+    materials: Any interable of size of number of cells, optional
+        Optional array of OpenMC materials to fill the cells. Size should match number of faces in the mesh.
+        If None, dummy materials will be used to avoid OpenMC errors.
+    print_debug: boo, optional
+        If True, prints edge coefficients and face connectivity for debugging.
+    tol: float, optional
+        Tolerance for determining edge types and connectivity. Should be a small positive number, e.g. 1e-6.
+
+    Returns
+    -------
+    OpenMC.Universe
+        OpenMC Universe object representing the geometry
+
+    """
     if not kokkos_runtime.is_running():
         raise RuntimeError("Kokkos not running...")
 
-    [edge_coefficients, boundary_edge_ids, face_connctivity] = (
+    [edge_coefficients, edge_types, boundary_edge_ids, face_connctivity] = (
         mesh.get_all_geometry_info(print_debug, tol)
     )
     n_edges = mesh.num_entities(1)
@@ -130,11 +150,11 @@ def create_openmc_geometry(
     neg_c = edge_coefficients[:, 3]
 
     for i in range(len(intersections)):
-        if np.abs(m2[i]) < 1e-10:  # zplane
+        if edge_types[i] == EdgeType.Z_PLANE:
             edges[i] = openmc.ZPlane(z0=-neg_c[i])
-        elif np.isclose(z2[i], 0.0) and np.isclose(m2[i], 1.0):  # zcylinder
+        elif edge_types[i] == EdgeType.Z_CYLINDER:
             edges[i] = openmc.ZCylinder(r=np.sqrt(-neg_c[i]))
-        elif int(z2[i]) == -1:  # cone
+        elif edge_types[i] == EdgeType.Z_CONE:
             edges[i] = openmc.model.ZConeOneSided(
                 z0=intersections[i],
                 r2=1.0 / abs(m2[i]),
@@ -145,7 +165,6 @@ def create_openmc_geometry(
                 f"Z2 value {z2[i]} not recognized. Coefficients: {edge_coefficients[i, :]}"
             )
 
-    # this is incorrect as the above is appending
     for edge_id in boundary_edge_ids:
         edges[edge_id].boundary_type = "reflective"
 
@@ -188,11 +207,11 @@ def create_openmc_geometry(
     return universe
 
 
-def convert2openmc(filename, tol):
+def convert2openmcXML(filename, tol):
     assert filename.endswith(".osh")
     assert (tol < 1e-6) and (tol > 0.0)
 
     with OmegaHMesh(filename) as mesh:
-        universe = create_openmc_geometry(mesh=mesh, tol=tol)
+        universe = create_openmc_universe(mesh=mesh, tol=tol)
         geom = openmc.Geometry(universe)
         geom.export_to_xml()

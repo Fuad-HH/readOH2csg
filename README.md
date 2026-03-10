@@ -98,9 +98,11 @@ cmake --build build -j4 --target install
 >[!WARNING]
 > For now, only the Python API and CLI work. Please do not turn off the option for Python bindings. It is
 > enabled by default.
-
-5. Try running the CLI tool, and it should print the help message:
+5. Create Python virtual environment and install dependencies as described in the [Pre-built Wheel](#1-pre-built-wheel) section.
+6. Install `readOH2csg` and run the CLI tool, and it should print the help message:
 ```bash
+# from the source directory
+python -m pip install .
 convert2degas2 --help
 ```
 
@@ -118,3 +120,5 @@ run the case following [OpenMC Documentation](https://docs.openmc.org).
 
 ## Documentation
 More details on strategies, logic, and math are included in the [`doc/`](doc/) directory.
+### Developer's Guide
+For myself and future development, use the [Developer's Guide](doc/DEVELOPERS_GUIDE.md) to understand the code structure, design decisions, and how to contribute to this project.

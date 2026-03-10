@@ -32,10 +32,12 @@ calculate_face_connectivity(Omega_h::Mesh mesh,
  * @param mesh Input mesh
  * @param print_flag Print flag for debugging
  * @param edge_coefficients_v Output edge coefficients of size (num_edges, 6)
+ * @param edge_type_v Edge type (z-plane -> 1, z-cylinder -> 2, z-cone -> 3)
  * @param tol Tolerance for numerical comparisons
  */
 void compute_edge_coefficients(Omega_h::Mesh &mesh,
                                Kokkos::View<double *[6]> edge_coefficients_v,
+                               Kokkos::View<int *> edge_type_v,
                                bool print_flag = false, double tol = 1e-10);
 
 [[nodiscard]] Omega_h::LOs get_boundary_edge_ids(Omega_h::Mesh &mesh);

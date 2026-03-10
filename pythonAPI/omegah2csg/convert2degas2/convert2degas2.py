@@ -80,6 +80,22 @@ def write_dummy_bg_files_aux(nzone, nwall_input, stratum_start):
 def convert2degas2(
     mesh_filename, netcdf_filename="geometry.nc", create_aux_files=True, tol=1e-10
 ):
+    """Convert Omega_h mesh to Degas2 NetCDF geometry file and auxiliary files.
+
+    Parameters
+    ----------
+    mesh_filename : str
+        Path to the Omega_h mesh file (.osh) to be converted. This mesh must have a boundary layer. See [workflow documentation](https://gist.github.com/Fuad-HH/ea6d4913adcfb4d857ef2a77aebaaa2c)
+        for details on how to create such a mesh.
+    netcdf_filename : str, optional
+        Desired name for the output NetCDF file. Default is "geometry.nc".
+    create_aux_files : bool, optional
+        If True, creates auxiliary files (plasmafile.txt, sourcefile.txt, wallfile.txt) required for Degas2 simulations. Default is True.
+    tol : float, optional
+        Tolerance for numerical comparisons when determining edge orientations and other geometric properties. Default is 1e-10.
+
+    """
+
     assert netcdf_filename.endswith(".nc"), (
         "Degas2 mesh name should end with .nc but given {}".format(netcdf_filename)
     )
@@ -87,7 +103,7 @@ def convert2degas2(
         assert mesh.has_boundary_layer, (
             "Degas2 requires mesh to have a boundary layer. Use addBonudaryLayer tool from tomms."
         )
-        [edge_coefficients, boundary_edge_ids, face2edge_map] = (
+        [edge_coefficients, edge_types_, boundary_edge_ids, face2edge_map] = (
             mesh.get_all_geometry_info(tol=tol)
         )
         Ntri = face2edge_map.shape[0]  # ncells

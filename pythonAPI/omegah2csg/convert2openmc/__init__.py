@@ -9,8 +9,8 @@ from .convert2openmc import (
     create_z_plane,
     create_z_cylinder,
     create_openmc_surface,
-    create_openmc_geometry,
-    convert2openmc,
+    create_openmc_universe,
+    convert2openmcXML,
 )
 
 __all__ = [
@@ -24,6 +24,6 @@ __all__ = [
     "create_z_plane",
     "create_z_cylinder",
     "create_openmc_surface",
-    "create_openmc_geometry",
-    "convert2openmc",
+    "create_openmc_universe",
+    "convert2openmcXML",
 ]
