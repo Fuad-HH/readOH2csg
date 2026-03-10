@@ -1,8 +1,8 @@
 import numpy as np
 import openmc
-from omegah2csg import get_line_equation
-from omegah2csg import create_openmc_surface
-from omegah2csg import is_horizontal, is_vertical, is_cone
+from omegah2csg.convert2openmc import get_line_equation
+from omegah2csg.convert2openmc import create_openmc_surface
+from omegah2csg.convert2openmc import is_horizontal, is_vertical, is_cone
 
 
 def test_is_horizontal_vertical_cone():

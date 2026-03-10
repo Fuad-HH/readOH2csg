@@ -2,7 +2,6 @@ import netCDF4
 import numpy as np
 
 from ..OmegaHMesh import OmegaHMesh
-from ..openmcGeometry import get_all_geometry_info
 
 INT_UNUSED = 2000000000
 DBL_UNUSED = 2.0e30
@@ -88,8 +87,8 @@ def convert2degas2(
         assert mesh.has_boundary_layer, (
             "Degas2 requires mesh to have a boundary layer. Use addBonudaryLayer tool from tomms."
         )
-        [edge_coefficients, boundary_edge_ids, face2edge_map] = get_all_geometry_info(
-            mesh, tol=tol
+        [edge_coefficients, boundary_edge_ids, face2edge_map] = (
+            mesh.get_all_geometry_info(tol=tol)
         )
         Ntri = face2edge_map.shape[0]  # ncells
         boundary_face_flag = mesh.get_boundary_face_flag()

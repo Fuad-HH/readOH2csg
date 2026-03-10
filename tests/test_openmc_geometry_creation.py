@@ -3,11 +3,7 @@ import openmc
 
 import pandas as pd
 from omegah2csg import OmegaHMesh
-from omegah2csg import get_edge_coefficients
-from omegah2csg import get_boundary_edge_ids
-from omegah2csg import get_face_connectivity
-from omegah2csg import get_all_geometry_info
-from omegah2csg import create_openmc_geometry
+from omegah2csg.convert2openmc import create_openmc_geometry
 from omegah2csg import read_edge_coefficients_from_file
 from omegah2csg import read_face_connectivity_from_file
 
@@ -34,7 +30,7 @@ def test_read_from_file():
 
     with OmegaHMesh(parent_directory / "assets/6elem.osh") as mesh:
         [edge_coefficients_api, boundary_edge_ids_api, face_connectivity_api] = (
-            get_all_geometry_info(mesh)
+            mesh.get_all_geometry_info()
         )
 
     # compare boundary edges
@@ -68,7 +64,7 @@ def test_read_from_file():
 def test_all_gemetry_info():
     with OmegaHMesh(parent_directory / "assets/6elem.osh") as mesh:
         [edge_coefficients, boundary_edge_ids, face_connctivity] = (
-            get_all_geometry_info(mesh)
+            mesh.get_all_geometry_info()
         )
         print(pd.DataFrame(edge_coefficients))
         print(pd.DataFrame(boundary_edge_ids))
@@ -93,8 +89,8 @@ def test_create_openmc_universe():
 def test_edge_and_face_coefficients():
     tol = 1e-10
     with OmegaHMesh(parent_directory / "assets/6elem.osh") as mesh:
-        edge_coefficients = get_edge_coefficients(mesh, tol=tol)
-        boundary_edge_ids = get_boundary_edge_ids(mesh)
+        edge_coefficients = mesh.get_edge_coefficients(tol=tol)
+        boundary_edge_ids = mesh.get_boundary_edge_ids()
         n_faces = mesh.num_entities(2)
         n_edges = mesh.num_entities(1)
 
@@ -102,11 +98,11 @@ def test_edge_and_face_coefficients():
         print(pd.DataFrame(edge_coefficients))
 
         print("\n\nFace connectivity:")
-        face_connectivity_edge_given = get_face_connectivity(
-            mesh, edge_coefficients, tol=tol
+        face_connectivity_edge_given = mesh.get_face_connectivity(
+            edge_coefficients, tol=tol
         )
         print(pd.DataFrame(face_connectivity_edge_given))
-        face_connectivity_edge_not_given = get_face_connectivity(mesh, tol=tol)
+        face_connectivity_edge_not_given = mesh.get_face_connectivity(tol=tol)
 
     top_bottom_flag = edge_coefficients[:, 5]
     edges = []
