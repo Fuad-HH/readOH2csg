@@ -146,17 +146,14 @@ def test_edge_and_face_coefficients():
     intersections = edge_coefficients[:, 3]
     m2 = edge_coefficients[:, 1]
     z2 = edge_coefficients[:, 2]
-    neg_c = edge_coefficients[:, 4]
+    neg_c = edge_coefficients[:, 3]
 
     for i in range(len(intersections)):
         if edge_types[i] == EdgeType.Z_PLANE:
-            # print("Zplane - id ", int(data[i][0]))
             edges.append(openmc.ZPlane(z0=-neg_c[i]))
         elif edge_types[i] == EdgeType.Z_CYLINDER:
-            # print("Quad - id ", int(data[i][0]))
             edges.append(openmc.ZCylinder(r=np.sqrt(-neg_c[i])))
         elif edge_types[i] == EdgeType.Z_CONE:
-            # print("Cone - id ", int(data[i][0]), " flag ", top_bottom_flag[i])
             edges.append(
                 openmc.model.ZConeOneSided(
                     z0=intersections[i],
