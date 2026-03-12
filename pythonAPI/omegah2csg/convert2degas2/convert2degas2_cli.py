@@ -1,11 +1,17 @@
 import argparse
 
+from .. import __version__
 from .convert2degas2 import convert2degas2
 
 
 def main():
     parser = argparse.ArgumentParser(
         description="Convert Omega_h mesh to DEGAS2 geometry (netcdf file)"
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"%(prog)s {__version__}",
     )
     parser.add_argument("filename", help="Omega_h mesh file (.osh)")
     parser.add_argument("--tol", type=float, help="tolerance", default=1e-10)
