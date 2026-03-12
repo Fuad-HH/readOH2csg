@@ -45,6 +45,7 @@ pythonAPI/*.egg-info*/
 *.c
 *.html
 *.so
+*.so.*
 
 .cache/
 .tox/

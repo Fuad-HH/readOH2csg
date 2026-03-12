@@ -47,15 +47,39 @@ target_link_libraries(omegah2csg PUBLIC Omega_h::omega_h)
 
 # =================== Python Package ===================
 if(omegah2csg_ENABLE_PYTHON)
+  set(_py_lib_dir ${PROJECT_SOURCE_DIR}/pythonAPI/omegah2csg/lib)
+
+  # Copy omegah2csg and its runtime dependencies into the Python package
   add_custom_command(
     TARGET omegah2csg
     POST_BUILD
-    COMMAND
-      ${CMAKE_COMMAND} -E copy $<TARGET_FILE:omegah2csg>
-      ${PROJECT_SOURCE_DIR}/pythonAPI/omegah2csg/lib/$<TARGET_FILE_NAME:omegah2csg>
+    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:omegah2csg> ${_py_lib_dir}/
+    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:Omega_h::omega_h>
+            ${_py_lib_dir}/
+    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:Kokkos::kokkoscore>
+            ${_py_lib_dir}/
+    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:Kokkos::kokkoscontainers>
+            ${_py_lib_dir}/
     COMMENT
-      "Copying $<TARGET_FILE:omegah2csg> to ${PROJECT_SOURCE_DIR}/pythonAPI/omegah2csg/lib/$<TARGET_FILE_NAME:omegah2csg>"
+      "Copied $<TARGET_FILE:omegah2csg> and other dependencies to ${PROJECT_SOURCE_DIR}/pythonAPI/omegah2csg/lib/ for Python bindings."
   )
+
+  # Patch RPATH to $ORIGIN so bundled libraries find each other at runtime
+  find_program(PATCHELF patchelf)
+  if(PATCHELF)
+    add_custom_command(
+      TARGET omegah2csg
+      POST_BUILD
+      COMMAND ${PATCHELF} --set-rpath "$$ORIGIN"
+              "${_py_lib_dir}/$<TARGET_FILE_NAME:omegah2csg>"
+      COMMAND ${PATCHELF} --set-rpath "$$ORIGIN"
+              "${_py_lib_dir}/$<TARGET_FILE_NAME:Omega_h::omega_h>"
+      COMMENT "Patching RPATH to $$ORIGIN for portable deployment")
+  else()
+    message(
+      STATUS "patchelf not found; Python _lib.py will handle dependency loading"
+    )
+  endif()
 endif()
 
 # =================== INSTALLATION ===================

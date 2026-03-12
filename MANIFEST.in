@@ -4,7 +4,7 @@ include pyproject.toml
 include pytest.toml
 global-include *.cmake
 global-include *.cmake.in
-recursive-include pythonAPI/omegah2csg/lib *.so
+recursive-include pythonAPI/omegah2csg/lib *.so *.so.*
 recursive-include src *.cc
 recursive-include src *.cpp
 recursive-include src *.h
