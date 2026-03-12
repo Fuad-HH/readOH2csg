@@ -176,7 +176,7 @@ jobs:
         shell: bash
         run: |
           ls -la wheel/
-          pip install --index-url https://shimwell.github.io/wheels openmc
+          pip install --extra-index-url https://shimwell.github.io/wheels openmc
           pip install netCDF4==1.7.2
           pip install wheel/*.whl
 
