@@ -18,14 +18,14 @@ runs:
 
     - name: Check Cache
       if: ${{ inputs.cache == 'true'}}
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       id: check-cache
       with:
         key: build-${{ inputs.repo-name }}-${{ inputs.repo-ref}}
         path: ${{ runner.temp }}/build-${{ inputs.repo-name }}
 
     - name: Checkout Repo
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         repository: ${{inputs.repo-path }}
         ref: ${{ inputs.repo-ref }}

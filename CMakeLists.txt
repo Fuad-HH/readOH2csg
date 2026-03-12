@@ -47,6 +47,9 @@ target_link_libraries(omegah2csg PUBLIC Omega_h::omega_h)
 
 # =================== Python Package ===================
 if(omegah2csg_ENABLE_PYTHON)
+  # Copy only libomegah2csg.so into the Python package tree.
+  # Runtime dependencies (omega_h, kokkos) are bundled automatically by
+  # `auditwheel repair` when building the wheel — see CI workflow.
   add_custom_command(
     TARGET omegah2csg
     POST_BUILD
