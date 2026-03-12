@@ -117,6 +117,7 @@ jobs:
         shell: bash
         run: |
           cd ${GITHUB_WORKSPACE}
+          export CMAKE_PREFIX_PATH="${{ runner.temp }}/build-omega_h/install/;${{ runner.temp }}/build-kokkos/install/;$CMAKE_PREFIX_PATH"
           python -m build
           pip install .[test]
 

@@ -63,8 +63,8 @@ sdist.include = [
 CMAKE_PREFIX_PATH = { env = "CMAKE_PREFIX_PATH", default = "" }
 Omega_h_ROOT = { env = "OMEGA_H_ROOT", default = "" }
 Kokkos_ROOT = { env = "KOKKOS_ROOT", default = "" }
-CMAKE_C_COMPILER = { env = "CC", default = "mpicc" }
-CMAKE_CXX_COMPILER = { env = "CXX", default = "mpicxx" }
+CMAKE_C_COMPILER = { env = "CC", default = "" }
+CMAKE_CXX_COMPILER = { env = "CXX", default = "" }
 CMAKE_BUILD_TYPE = { env = "CMAKE_BUILD_TYPE", default = "RelWithDebInfo" }
 
 
