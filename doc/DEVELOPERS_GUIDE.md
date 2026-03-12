@@ -348,8 +348,9 @@ GitHub Actions tab:
 
 1. Open the **Actions** tab for this repository on GitHub.
 2. In the left sidebar, select **Build Manylinux Wheels**.
-3. Click **Run workflow**, pick the branch/ref you want to build from (e.g., `parallel`), and click
-   the green **Run workflow** button.
+3. Click **Run workflow**, pick the branch/ref you want to build from (for example, the default
+   branch such as `main` or whichever branch contains your changes), and click the green
+   **Run workflow** button.
 4. Wait for the two jobs (`Build manylinux wheels` and `Test Wheel - Python 3.13`) to finish.
 5. From the workflow run summary page, download the **manylinux-wheels** artifact; it contains the
    built wheels (`cp311`, `cp312`, and `cp313`) that you can install locally.
