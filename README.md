@@ -1,8 +1,7 @@
 # Convert `Omega_h` Mesh to CSG Format
 [![License](https://img.shields.io/badge/license-BSD--3--Clause-02B36C)](https://github.com/Fuad-HH/readOH2csg/blob/parallel/LICENSE)
 [![GitHub Actions build status (Linux)](https://github.com/Fuad-HH/readOH2csg/actions/workflows/ci.yml/badge.svg?branch=parallel)](https://github.com/Fuad-HH/readOH2csg/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/Fuad-HH/readOH2csg?include_prereleases
-)](https://github.com/Fuad-HH/readOH2csg/releases)
+[![Release](https://img.shields.io/github/v/release/Fuad-HH/readOH2csg?include_prereleases)](https://github.com/Fuad-HH/readOH2csg/releases)
 
 Efficiently convert Tokamak mesh of `Omega_h` (`.osh`) format
 to Constructive Solid Geometry (CSG). It supports creating
@@ -15,6 +14,8 @@ CSG representation in
 
 ### 1. Pre-built Wheel
 This is the recommended way to install this package. We provide a pre-built wheel (`Kokkos` with `OpenMP` backend) for Python. Follow these steps to install the latest version of `readOH2csg` using pip:
+
+Wheels are built in CI and uploaded as workflow artifacts for each Python version and build type.
 
 1. On any Linux system, make sure you have Python (Version ≥ 3.11) installed. Go to the terminal
 and `cd` to the directory where you want to install the Python virtual environment.
@@ -31,13 +32,17 @@ pip install --extra-index-url https://shimwell.github.io/wheels openmc
 pip install netCDF4==1.7.2
 ```
 3. Install `readOH2csg`:
+
 ```bash
-pip install https://github.com/Fuad-HH/readOH2csg/releases/download/v0.0.1-alpha/omegah2csg-0.0.1-py3-none-any.whl omegah2csg
+pip install omegah2csg
 ```
-or
+Or if you want to install the latest release from GitHub:
 ```bash
-pip install -i https://test.pypi.org/simple/ omegah2csg
+pip install <link-to-release-wheel-file> omegah2csg
 ```
+>[!TIP]
+> Find the latest release on the [Releases Page](https://github.com/Fuad-HH/readOH2csg/releases/)
+> and copy the link to the wheel file for your Python version and system architecture.
 
 4. Try running the CLI tool, and it should print the help message:
 ```bash
@@ -51,7 +56,7 @@ with [`Kokkos`](https://github.com/kokkos/kokkos) and it supports any [`Kokkos`]
 
 Follow these steps to build and install `readOH2csg` from source:
 1. Make sure you have compilers (at least `g++` or some alternative), `Python` (Version ≥ 3.11), and `CMake` available.
-1. Install [`Kokkos`](https://github.com/kokkos/kokkos) following the instructions in
+2. Install [`Kokkos`](https://github.com/kokkos/kokkos) following the instructions in
 [Kokkos Build Documentation](https://kokkos.org/kokkos-core-wiki/get-started/building-from-source.html#configuring-and-building-kokkos). You can choose any backend supported. Here's an example for building with the `OpenMP` backend:
 ```bash
 git clone --depth=2 --branch 4.7.02 https://github.com/kokkos/kokkos.git
@@ -98,10 +103,13 @@ cmake --build build -j4 --target install
 >[!WARNING]
 > For now, only the Python API and CLI work. Please do not turn off the option for Python bindings. It is
 > enabled by default.
+
 5. Create Python virtual environment and install dependencies as described in the [Pre-built Wheel](#1-pre-built-wheel) section.
 6. Install `readOH2csg` and run the CLI tool, and it should print the help message:
 ```bash
 # from the source directory
+export KOKKOS_ROOT=<Kokkos_install_dir>
+export OMEGA_H_ROOT=<Omega_h_install_dir>
 python -m pip install .
 convert2degas2 --help
 ```

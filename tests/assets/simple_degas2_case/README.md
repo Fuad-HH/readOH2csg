@@ -4,13 +4,13 @@ This case was created to verify `convert2degas2` tool and related functions.
 At first, we were trying to directly convert the LTX mesh, but it was difficult
 to track down each of the arrays produced by both the original `definegeometry2d` and
 our tool `convert2degas2`. To make a case that we could manually track
-and understand what each arrays actually mean in `geometry.nc` files.
+and understand what each array actually mean in `geometry.nc` files.
 We started with a simple box geometry, but `definegeometry2d` was not
 working with it (I suspect it was due to the limitation 
 of the wall walking algorithm) and it was too simple to have all
 kinds of behaviors. Then we created a relatively complex geometry
 with `GMSH`'s Python API by hand and got
-[minDG2mesh.msh](./original-mesh-files/minDG2Mesh.msh).
+[minDG2Mesh.msh](./original-mesh-files/minDG2Mesh.msh).
 
 ![The original mesh we started with](images/original-mesh.png)
 
@@ -55,7 +55,7 @@ index dc4e0ae..03ec9a0 100644
 ```
 
 This dumped all the triangles after the geometry is complete in `definegeometry2d`. Based on this,
-we extracted the triangles and nodes using the scripts in [`nc2mesh.ipynb`](https://github.com/Fuad-HH/Degas2-Geom-Debug/blob/main/nc2mesh.ipynb). From this `maplotlib.tri` object, we created
+we extracted the triangles and nodes using the scripts in [`nc2mesh.ipynb`](https://github.com/Fuad-HH/Degas2-Geom-Debug/blob/main/nc2mesh.ipynb). From this `matplotlib.tri` object, we created
 the `.msh` and `.osh` files. After that, we had to modify the `.osh` file to add the `isOnWall`
 and `offset_face` tags (used [this program](https://github.com/Fuad-HH/Degas2-Geom-Debug/blob/main/src/set_tags.cpp)). Finally, the [`tagged-dg2mesh.osh`](./tagged-dg2mesh.osh) file ready to be used in `convert2degas2`. A standard one is stored for test cases
 as [gold-geometry.nc](./gold-geometry.nc).
@@ -68,6 +68,6 @@ installation and related input files. An example case is given in [`degas2-case`
 With this case, we found that the outermost boundary created by `definegeometry2d` is always a rectangle and each edge can only have
 a single triangle adjacent to it. To connect with one layer of elements for concave geometry, `definegeometry2d` fills the concave part with triangles and then creates a bounding rectangle around the geometry.
 
-![definegeometry2d created mesh for a concave geoemtry](images/recBoundary-dg2d.png)
+![definegeometry2d created mesh for a concave geometry](images/recBoundary-dg2d.png)
 
 *The sideways U shape is the original geometry, then a wall layer is created around it (using degas2 python script `setup_xgc_case`), and then the bounding rectangle is created around it (using `definegeometry2d`).*
