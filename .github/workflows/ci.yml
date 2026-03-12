@@ -145,3 +145,38 @@ jobs:
         with:
           name: wheel-py${{ matrix.python-version }}-${{ matrix.build_type }}
           path: repaired_wheels/*.whl
+
+  test-wheel:
+    needs: main
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.13"]
+
+    name: "Test Wheel - Python ${{ matrix.python-version }}"
+
+    steps:
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Download repaired wheel
+        uses: actions/download-artifact@v4
+        with:
+          name: wheel-py${{ matrix.python-version }}-Release
+          path: wheel/
+
+      - name: Install wheel
+        shell: bash
+        run: |
+          ls -la wheel/
+          pip install wheel/*.whl
+
+      - name: Test convert2degas2 --help
+        shell: bash
+        run: convert2degas2 --help
+
+      - name: Test convert2openmc --help
+        shell: bash
+        run: convert2openmc --help
