@@ -340,3 +340,16 @@ python -m twine upload --repository testpypi dist/*
 
 It will require a `testpypi` `index-server` entry in your `~/.pypirc` file. See PyPI documentation
 for more details.
+
+### Build manylinux wheels from the GitHub Actions UI
+If you just want prebuilt wheels without setting up all build dependencies locally, you can trigger
+the `Build Manylinux Wheels` workflow defined in `.github/workflows/build-wheels.yml` from the
+GitHub Actions tab:
+
+1. Open the **Actions** tab for this repository on GitHub.
+2. In the left sidebar, select **Build Manylinux Wheels**.
+3. Click **Run workflow**, pick the branch/ref you want to build from (e.g., `parallel`), and click
+   the green **Run workflow** button.
+4. Wait for the two jobs (`Build manylinux wheels` and `Test Wheel - Python 3.13`) to finish.
+5. From the workflow run summary page, download the **manylinux-wheels** artifact; it contains the
+   built wheels (`cp311`, `cp312`, and `cp313`) that you can install locally.
