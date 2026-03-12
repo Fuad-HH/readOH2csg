@@ -22,6 +22,7 @@ wallfile.txt
 .settings/
 dist/
 pythonAPI/*.egg-info*/
+wheelhouse/
 
 # Inputs generated from Python API
 *.xml

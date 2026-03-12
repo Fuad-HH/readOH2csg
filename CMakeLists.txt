@@ -47,48 +47,18 @@ target_link_libraries(omegah2csg PUBLIC Omega_h::omega_h)
 
 # =================== Python Package ===================
 if(omegah2csg_ENABLE_PYTHON)
-  set(_py_lib_dir ${PROJECT_SOURCE_DIR}/pythonAPI/omegah2csg/lib)
-
-  # Copy omegah2csg and its runtime dependencies into the Python package
+  # Copy only libomegah2csg.so into the Python package tree.
+  # Runtime dependencies (omega_h, kokkos) are bundled automatically by
+  # `auditwheel repair` when building the wheel — see CI workflow.
   add_custom_command(
     TARGET omegah2csg
     POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:omegah2csg> ${_py_lib_dir}/
-    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:Omega_h::omega_h>
-            ${_py_lib_dir}/
-    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:Kokkos::kokkoscore>
-            ${_py_lib_dir}/
-    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:Kokkos::kokkoscontainers>
-            ${_py_lib_dir}/
+    COMMAND
+      ${CMAKE_COMMAND} -E copy $<TARGET_FILE:omegah2csg>
+      ${PROJECT_SOURCE_DIR}/pythonAPI/omegah2csg/lib/$<TARGET_FILE_NAME:omegah2csg>
     COMMENT
-      "Copying $<TARGET_FILE:omegah2csg> and other dependencies to ${PROJECT_SOURCE_DIR}/pythonAPI/omegah2csg/lib/ for Python bindings."
+      "Copying $<TARGET_FILE:omegah2csg> to ${PROJECT_SOURCE_DIR}/pythonAPI/omegah2csg/lib/$<TARGET_FILE_NAME:omegah2csg>"
   )
-
-  # Patch RPATH to $ORIGIN so bundled libraries find each other at runtime
-  find_program(PATCHELF patchelf REQUIRED)
-  set(_origin_rpath "$ORIGIN")
-  add_custom_command(
-    TARGET omegah2csg
-    POST_BUILD
-    COMMAND ${PATCHELF} --set-rpath ${_origin_rpath}
-            ${_py_lib_dir}/$<TARGET_FILE_NAME:omegah2csg>
-    COMMAND ${PATCHELF} --set-rpath ${_origin_rpath}
-            ${_py_lib_dir}/$<TARGET_FILE_NAME:Omega_h::omega_h>
-    COMMAND ${PATCHELF} --set-rpath ${_origin_rpath}
-            ${_py_lib_dir}/$<TARGET_FILE_NAME:Kokkos::kokkoscore>
-    COMMAND ${PATCHELF} --set-rpath ${_origin_rpath}
-            ${_py_lib_dir}/$<TARGET_FILE_NAME:Kokkos::kokkoscontainers>
-    COMMENT
-      "Patching RPATH of bundled libraries to $ORIGIN for Python bindings."
-    VERBATIM)
-
-  # Create SONAME copies (e.g. libkokkoscore.so.5.0 from libkokkoscore.so.5.0.99)
-  add_custom_command(
-    TARGET omegah2csg
-    POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -DLIB_DIR=${_py_lib_dir} -DPATCHELF=${PATCHELF} -P
-            ${PROJECT_SOURCE_DIR}/cmake/create_soname_symlinks.cmake
-    COMMENT "Creating SONAME symlinks for bundled libraries")
 endif()
 
 # =================== INSTALLATION ===================
