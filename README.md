@@ -80,6 +80,13 @@ cmake -S . -B build \
 cmake --build build -j4 --target install
 ```
 
+4. Build and install `omegah2csg` from source by pointing CMake to your installs:
+```bash
+export KOKKOS_ROOT=<Kokkos_install_dir>
+export OMEGA_H_ROOT=<Omega_h_install_dir>
+python -m pip install .[test]
+```
+
 4. Now, install `readOH2csg`:
 ```bash
 git clone https://github.com/Fuad-HH/readOH2csg.git --branch parallel

@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools >= 77.0.3", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["scikit-build-core>=0.12.2"]
+build-backend = "scikit_build_core.build"
 
 [project]
 name = "omegah2csg"
@@ -39,19 +39,33 @@ test = [
 Homepage = "https://github.com/Fuad-HH/readOH2csg"
 Issues = "https://github.com/Fuad-HH/readOH2csg/issues"
 
-[tool.setuptools.packages.find]
-where = ["pythonAPI"]
-include = ["omegah2csg*"]
-exclude = ["tests*"]
-namespaces = true
-
-
-[tool.setuptools.package-data]
-"omegah2csg" = ["*.txt", "*.dat", "*.osh", "*.so"]
-
 [project.scripts]
 convert2openmc = "omegah2csg.convert2openmc.convert2openmc_cli:app"
 convert2degas2 = "omegah2csg.convert2degas2.convert2degas2_cli:app"
+
+
+[tool.scikit-build]
+minimum-version = "build-system.requires"
+wheel.packages = ["pythonAPI/omegah2csg"]
+sdist.include = [
+    "CMakeLists.txt",
+    "cmake/**",
+    "src/**",
+    "pythonAPI/**",
+    "tests/**",
+    "README.md",
+    "LICENSE",
+    "pyproject.toml",
+    "pytest.toml",
+]
+
+[tool.scikit-build.cmake.define]
+CMAKE_PREFIX_PATH = { env = "CMAKE_PREFIX_PATH", default = "" }
+Omega_h_ROOT = { env = "OMEGA_H_ROOT", default = "" }
+Kokkos_ROOT = { env = "KOKKOS_ROOT", default = "" }
+CMAKE_C_COMPILER = { env = "CC", default = "mpicc" }
+CMAKE_CXX_COMPILER = { env = "CXX", default = "mpicxx" }
+CMAKE_BUILD_TYPE = { env = "CMAKE_BUILD_TYPE", default = "RelWithDebInfo" }
 
 
 [tool.ruff]
