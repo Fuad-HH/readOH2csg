@@ -16,6 +16,8 @@ CSG representation in
 ### 1. Pre-built Wheel
 This is the recommended way to install this package. We provide a pre-built wheel (`Kokkos` with `OpenMP` backend) for Python. Follow these steps to install the latest version of `readOH2csg` using pip:
 
+Wheels are built in CI and uploaded as workflow artifacts for each Python version and build type.
+
 1. On any Linux system, make sure you have Python (Version ≥ 3.11) installed. Go to the terminal
 and `cd` to the directory where you want to install the Python virtual environment.
 ```bash
@@ -31,13 +33,17 @@ pip install --extra-index-url https://shimwell.github.io/wheels openmc
 pip install netCDF4==1.7.2
 ```
 3. Install `readOH2csg`:
+
 ```bash
-pip install https://github.com/Fuad-HH/readOH2csg/releases/download/v0.0.1-alpha/omegah2csg-0.0.1-py3-none-any.whl omegah2csg
+pip install omegah2csg
 ```
-or
+Or if you want to install the latest release from GitHub:
 ```bash
-pip install -i https://test.pypi.org/simple/ omegah2csg
+pip install <link-to-release-wheel-file> omegah2csg
 ```
+>[!TIP]
+> Find the latest release on the [Releases Page](https://github.com/Fuad-HH/readOH2csg/releases/)
+> and copy the link to the wheel file for your Python version and system architecture.
 
 4. Try running the CLI tool, and it should print the help message:
 ```bash
@@ -80,13 +86,6 @@ cmake -S . -B build \
 cmake --build build -j4 --target install
 ```
 
-4. Build and install `omegah2csg` from source by pointing CMake to your installs:
-```bash
-export KOKKOS_ROOT=<Kokkos_install_dir>
-export OMEGA_H_ROOT=<Omega_h_install_dir>
-python -m pip install .[test]
-```
-
 4. Now, install `readOH2csg`:
 ```bash
 git clone https://github.com/Fuad-HH/readOH2csg.git --branch parallel
@@ -105,10 +104,13 @@ cmake --build build -j4 --target install
 >[!WARNING]
 > For now, only the Python API and CLI work. Please do not turn off the option for Python bindings. It is
 > enabled by default.
+
 5. Create Python virtual environment and install dependencies as described in the [Pre-built Wheel](#1-pre-built-wheel) section.
 6. Install `readOH2csg` and run the CLI tool, and it should print the help message:
 ```bash
 # from the source directory
+export KOKKOS_ROOT=<Kokkos_install_dir>
+export OMEGA_H_ROOT=<Omega_h_install_dir>
 python -m pip install .
 convert2degas2 --help
 ```

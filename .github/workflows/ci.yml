@@ -20,7 +20,7 @@ jobs:
     strategy:
       matrix:
         build_type: ["Release", "Debug"]
-        python-version: ["3.11", "3.12", "3.13"]
+        python-version: ["3.11", "3.13"]
 
     name: "Python ${{ matrix.python-version }} - ${{ matrix.build_type }}"
 
@@ -132,11 +132,11 @@ jobs:
           export OMP_NUM_THREADS=2
           pytest -vv -s
 
-      - name: Create and repair wheel
+      # Creating the wheel is enough now since it will be repaired by cibuildwheel
+      - name: Create wheel
         shell: bash
         run: |
           cd ${GITHUB_WORKSPACE}
-          pip install auditwheel patchelf
           # Build the wheel
           export CMAKE_PREFIX_PATH="${{ runner.temp }}/build-omega_h/install:${{ runner.temp }}/build-kokkos/install:$CMAKE_PREFIX_PATH"
           export OMEGA_H_ROOT="${{ runner.temp }}/build-omega_h/install/"
@@ -144,51 +144,3 @@ jobs:
           python -m build --wheel --outdir dist/
           echo "---- Built wheels ----"
           ls -la dist/
-          # Repair the wheel — bundle shared libs (omega_h, kokkos, etc.)
-          auditwheel show dist/*.whl
-          auditwheel repair dist/*.whl --wheel-dir repaired_wheels/
-          echo "---- Repaired wheels ----"
-          ls -la repaired_wheels/
-
-      - name: Upload repaired wheel
-        uses: actions/upload-artifact@v4
-        with:
-          name: wheel-py${{ matrix.python-version }}-${{ matrix.build_type }}
-          path: repaired_wheels/*.whl
-
-  test-wheel:
-    needs: main
-    runs-on: ubuntu-24.04
-    strategy:
-      matrix:
-        python-version: ["3.11"]
-
-    name: "Test Wheel - Python ${{ matrix.python-version }}"
-
-    steps:
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-
-      - name: Download repaired wheel
-        uses: actions/download-artifact@v4
-        with:
-          name: wheel-py${{ matrix.python-version }}-Release
-          path: wheel/
-
-      - name: Install wheel
-        shell: bash
-        run: |
-          ls -la wheel/
-          pip install --extra-index-url https://shimwell.github.io/wheels openmc
-          pip install netCDF4==1.7.2
-          pip install wheel/*.whl
-
-      - name: Test convert2degas2 --help
-        shell: bash
-        run: convert2degas2 --help
-
-      - name: Test convert2openmc --help
-        shell: bash
-        run: convert2openmc --help

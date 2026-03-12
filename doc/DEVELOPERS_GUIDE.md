@@ -296,47 +296,51 @@ pytest
 ```
 
 ## Packaging
-### Create Distribution Files
-After development and testing, to create the archive and wheel for distribution, install `build` using `pip` and run:
+### Overview
+This project uses `scikit-build-core` to build a Python wheel that includes the native
+`libomegah2csg.so` shared library. You can build locally or use the CI workflow to
+produce manylinux wheels.
 
+### Local build (developer machine)
+You must have Omega_h and Kokkos installed and discoverable by CMake before building.
+
+1. Install build tooling:
+```bash
+python -m pip install -U build
+```
+
+2. Provide CMake hints (use your install prefixes):
+```bash
+export CMAKE_PREFIX_PATH="<Omega_h_install_dir>:<Kokkos_install_dir>:${CMAKE_PREFIX_PATH}"
+```
+
+3. Build sdist + wheel:
 ```bash
 python -m build
 ```
-which will create the distribution files in the `dist/` directory.
 
-### Repair the Wheel with `auditwheel`
-The built wheel contains a shared library (`omegah2csg.so`) that links against external shared
-libraries (Omega\_h, Kokkos, etc.). To make the wheel portable and self-contained, use
-[`auditwheel`](https://github.com/pypa/auditwheel) to bundle those shared libraries into the wheel.
+Artifacts are written to `dist/`.
 
-First, install `auditwheel` and `patchelf`:
+### CI build (manylinux wheels)
+The `Build Manylinux Wheels` workflow builds Omega_h and Kokkos in the container and
+then builds wheels with `cibuildwheel`. The resulting wheels are uploaded as workflow
+artifacts named `manylinux-wheels`.
+
+To download wheels from CI with GitHub CLI:
 ```bash
-pip install auditwheel patchelf
+# Find the workflow run you want
+gh run list --workflow "Build Manylinux Wheels"
+
+# Download the wheels from a specific run
+gh run download <jobid> --name manylinux-wheels
 ```
-
-Make sure the shared libraries that the wheel depends on are discoverable via `LD_LIBRARY_PATH`.
-For example, if Omega\_h and Kokkos are installed under `/path/to/omega_h` and `/path/to/kokkos`:
-```bash
-export LD_LIBRARY_PATH="/path/to/omega_h/lib64:/path/to/kokkos/lib64:${LD_LIBRARY_PATH}"
-```
-
-Then inspect and repair the wheel:
-```bash
-# Show external shared library dependencies
-auditwheel show dist/*.whl
-
-# Repair the wheel — bundles shared libs into the wheel
-auditwheel repair dist/*.whl --wheel-dir repaired_wheels/
-```
-
-The repaired wheel will be in the `repaired_wheels/` directory and can be installed on any
-compatible Linux system without needing Omega\_h or Kokkos installed separately.
 
 ### Upload to PyPI/TestPyPI
-To upload the distribution files to PyPI or TestPyPI, install `twine` using `pip` and run:
+To upload the distribution files to PyPI or TestPyPI, install `twine` and run:
 ```bash
+python -m pip install -U twine
 python -m twine upload --repository testpypi dist/*
 ```
 
-It will require a `testpypi` `index-server` entry in your `~/.pypirc` file. See PyPI documentation
-for more details.
+This requires a `testpypi` `index-server` entry in your `~/.pypirc`. See the PyPI
+documentation for details.
