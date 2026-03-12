@@ -117,7 +117,7 @@ jobs:
         shell: bash
         run: |
           cd ${GITHUB_WORKSPACE}
-          export CMAKE_PREFIX_PATH="${{ runner.temp }}/build-omega_h/install/;${{ runner.temp }}/build-kokkos/install/;$CMAKE_PREFIX_PATH"
+          export CMAKE_PREFIX_PATH="${{ runner.temp }}/build-omega_h/install/:${{ runner.temp }}/build-kokkos/install/:$CMAKE_PREFIX_PATH"
           python -m build
           pip install .[test]
 
@@ -140,7 +140,7 @@ jobs:
           echo "---- Built wheels ----"
           ls -la dist/
           # Repair the wheel — bundle shared libs (omega_h, kokkos, etc.)
-          export CMAKE_PREFIX_PATH="${{ runner.temp }}/build-omega_h/install/;${{ runner.temp }}/build-kokkos/install/;$CMAKE_PREFIX_PATH"
+          export CMAKE_PREFIX_PATH="${{ runner.temp }}/build-omega_h/install/:${{ runner.temp }}/build-kokkos/install/:$CMAKE_PREFIX_PATH"
           auditwheel show dist/*.whl
           auditwheel repair dist/*.whl --wheel-dir repaired_wheels/
           echo "---- Repaired wheels ----"
