@@ -77,8 +77,8 @@ if(omegah2csg_ENABLE_PYTHON)
               ${_py_lib_dir}/$<TARGET_FILE_NAME:omegah2csg>
       COMMAND ${PATCHELF} --set-rpath ${_origin_rpath}
               ${_py_lib_dir}/$<TARGET_FILE_NAME:Omega_h::omega_h>
-      COMMENT "Patching RPATH to DOLLAR-ORIGIN for portable deployment"
-      VERBATIM)
+      COMMENT "Patched RPATH of $<TARGET_FILE:omegah2csg> and Omega_h to ${_origin_rpath} using patchelf."
+    )
   else()
     message(
       STATUS "patchelf not found; Python _lib.py will handle dependency loading"
