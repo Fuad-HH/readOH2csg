@@ -1,0 +1,132 @@
+name: Build Manylinux Wheels
+
+on:
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  
+  KOKKOS_VERSION: "4.6.01"
+  OMEGA_H_REF: "master"
+
+jobs:
+  build-wheels:
+    runs-on: ubuntu-24.04
+    name: "Build manylinux wheels"
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Build wheels with cibuildwheel
+        uses: pypa/cibuildwheel@v3.4.0
+        env:
+          # Build only for Linux x86_64 since openmc only supports that platform
+          CIBW_PLATFORM: linux
+          CIBW_ARCHS_LINUX: x86_64
+
+          # Use manylinux_2_28 for broad compatibility (AlmaLinux 8 based)
+          CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
+
+          # Build for CPython 3.11, 3.12, 3.13
+          CIBW_BUILD: "cp311-manylinux_x86_64 cp312-manylinux_x86_64 cp313-manylinux_x86_64"
+          CIBW_SKIP: "*-musllinux_*"
+
+          # Install system packages and build C++ deps inside manylinux container.
+          # This runs once before any wheel is built.
+          CIBW_BEFORE_ALL_LINUX: >
+            yum install -y gcc gcc-c++ make netcdf-devel hdf5-devel pkg-config &&
+
+            curl -sSL https://github.com/Kitware/CMake/releases/download/v3.31.6/cmake-3.31.6-linux-x86_64.tar.gz
+            | tar -xz -C /usr/local --strip-components=1 &&
+
+            DEPS_PREFIX=/usr/local/deps &&
+            mkdir -p $DEPS_PREFIX &&
+
+            echo "--- Building Kokkos ---" &&
+            git clone --depth 1 --branch ${{ env.KOKKOS_VERSION }}
+            https://github.com/kokkos/kokkos.git /tmp/kokkos-src &&
+            cmake -S /tmp/kokkos-src -B /tmp/kokkos-build
+            -DCMAKE_INSTALL_PREFIX=$DEPS_PREFIX
+            -DCMAKE_CXX_STANDARD=17
+            -DBUILD_SHARED_LIBS=ON
+            -DKokkos_ENABLE_SERIAL=ON
+            -DKokkos_ENABLE_OPENMP=ON
+            -DKokkos_ENABLE_CUDA=OFF
+            -DKokkos_ENABLE_CUDA_LAMBDA=OFF
+            -DKokkos_ENABLE_CUDA_CONSTEXPR=OFF &&
+            cmake --build /tmp/kokkos-build -j$(nproc) --target install &&
+
+            echo "--- Building Omega_h ---" &&
+            git clone --depth 1 --branch ${{ env.OMEGA_H_REF }}
+            https://github.com/SCOREC/omega_h.git /tmp/omega_h-src &&
+            cmake -S /tmp/omega_h-src -B /tmp/omega_h-build
+            -DCMAKE_INSTALL_PREFIX=$DEPS_PREFIX
+            -DCMAKE_CXX_COMPILER=$(which g++)
+            -DCMAKE_C_COMPILER=$(which gcc)
+            -DBUILD_SHARED_LIBS=ON
+            -DOmega_h_USE_MPI=OFF
+            -DOmega_h_USE_Kokkos=ON
+            -DBUILD_TESTING=OFF
+            -DKokkos_ROOT=$DEPS_PREFIX &&
+            cmake --build /tmp/omega_h-build -j$(nproc) --target install &&
+
+            echo "--- Building omegah2csg shared library ---" &&
+            cmake -S /project -B /tmp/omegah2csg-build
+            -DCMAKE_BUILD_TYPE=Release
+            -DCMAKE_CXX_COMPILER=$(which g++)
+            -DCMAKE_C_COMPILER=$(which gcc)
+            -DOmega_h_ROOT=$DEPS_PREFIX
+            -DKokkos_ROOT=$DEPS_PREFIX &&
+            cmake --build /tmp/omegah2csg-build -j$(nproc)
+
+          # Set LD_LIBRARY_PATH so auditwheel can find shared libs to bundle
+          CIBW_ENVIRONMENT_LINUX: >
+            LD_LIBRARY_PATH=/usr/local/deps/lib:/usr/local/deps/lib64:$LD_LIBRARY_PATH
+
+          # auditwheel repair is run automatically by cibuildwheel
+
+      - name: List built wheels
+        run: ls -la wheelhouse/
+
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: manylinux-wheels
+          path: wheelhouse/*.whl
+
+  test-wheel:
+    needs: build-wheels
+    runs-on: ubuntu-latest
+    name: "Test Wheel - Python 3.13"
+
+    steps:
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Download wheels
+        uses: actions/download-artifact@v4
+        with:
+          name: manylinux-wheels
+          path: wheels/
+
+      - name: Install latest Python wheel
+        shell: bash
+        run: |
+          ls -la wheels/
+          pip install --extra-index-url https://shimwell.github.io/wheels openmc
+          pip install netCDF4==1.7.2
+          # Install the cp313 wheel
+          pip install wheels/*cp313*.whl
+
+      - name: Test convert2degas2 --help
+        run: convert2degas2 --help
+
+      - name: Test convert2openmc --help
+        run: convert2openmc --help
+
+      - name: Test import
+        run: python -c "import omegah2csg; print('omegah2csg imported successfully')"
