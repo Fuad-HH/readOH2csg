@@ -1,8 +1,7 @@
 # Convert `Omega_h` Mesh to CSG Format
 [![License](https://img.shields.io/badge/license-BSD--3--Clause-02B36C)](https://github.com/Fuad-HH/readOH2csg/blob/parallel/LICENSE)
 [![GitHub Actions build status (Linux)](https://github.com/Fuad-HH/readOH2csg/actions/workflows/ci.yml/badge.svg?branch=parallel)](https://github.com/Fuad-HH/readOH2csg/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/Fuad-HH/readOH2csg?include_prereleases
-)](https://github.com/Fuad-HH/readOH2csg/releases)
+[![Release](https://img.shields.io/github/v/release/Fuad-HH/readOH2csg?include_prereleases)](https://github.com/Fuad-HH/readOH2csg/releases)
 
 Efficiently convert Tokamak mesh of `Omega_h` (`.osh`) format
 to Constructive Solid Geometry (CSG). It supports creating
@@ -57,7 +56,7 @@ with [`Kokkos`](https://github.com/kokkos/kokkos) and it supports any [`Kokkos`]
 
 Follow these steps to build and install `readOH2csg` from source:
 1. Make sure you have compilers (at least `g++` or some alternative), `Python` (Version ≥ 3.11), and `CMake` available.
-1. Install [`Kokkos`](https://github.com/kokkos/kokkos) following the instructions in
+2. Install [`Kokkos`](https://github.com/kokkos/kokkos) following the instructions in
 [Kokkos Build Documentation](https://kokkos.org/kokkos-core-wiki/get-started/building-from-source.html#configuring-and-building-kokkos). You can choose any backend supported. Here's an example for building with the `OpenMP` backend:
 ```bash
 git clone --depth=2 --branch 4.7.02 https://github.com/kokkos/kokkos.git

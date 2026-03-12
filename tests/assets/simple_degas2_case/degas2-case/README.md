@@ -2,7 +2,7 @@
 
 1. First, install [`degas2`](https://github.com/gjwilkie/degas2) with its related dependencies.
 
-Degas2 has a extensive list of dependencies and can be difficult to install. I have this following [`Spack`](https://spack.io/) configuration file that can be used to install `degas2` dependencies.
+Degas2 has an extensive list of dependencies and can be difficult to install. I have this following [`Spack`](https://spack.io/) configuration file that can be used to install `degas2` dependencies.
 
 ```yaml
 spack:

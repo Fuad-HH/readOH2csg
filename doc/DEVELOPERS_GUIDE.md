@@ -4,13 +4,14 @@ It describes the packaging strategy and choices of tools.
 To get started with Python packaging, check out the [Python Packaging User Guide](https://packaging.python.org/en/latest/).
 
 ## Formatting Style
-All codes in this project are formatted with formatting tools. All these formattings are enforced in the CI pipeline.
-
->[!TIP] If formatting is passing locally but failing in CI, make sure you are using the same version of the formatting tools as specified in the CI pipeline.
+Formatting tools are used to maintain a consistent code style across the project. They are also enforced in CI to ensure that all contributions adhere to the same style guidelines. The formatting tools used in this project are:
 
 - C++ uses `clang-format` with the configuration specified in the [.clang-format](../.clang-format) file.
 - CMake files use `cmake-format` with the configuration specified in the [.cmake-format](../.cmake-format.yaml) file.
-- Python files uses [`ruff`](https://docs.astral.sh/ruff/formatter/) to format the code with the configuration specified in the [pyproject.toml](../pyproject.toml) file.
+- Python files use [`ruff`](https://docs.astral.sh/ruff/formatter/) to format the code with the configuration specified in the [pyproject.toml](../pyproject.toml) file.
+
+>[!TIP]
+> If formatting is passing locally but failing in CI, make sure you are using the same version of the formatting tools as specified in the CI pipeline.
 
 ### C++ and CMake Formatting
 The C++ codes use the [.clang-format](../.clang-format) file and to format the code, you can use `clang-format` tool
