@@ -67,14 +67,18 @@ if(omegah2csg_ENABLE_PYTHON)
   # Patch RPATH to $ORIGIN so bundled libraries find each other at runtime
   find_program(PATCHELF patchelf)
   if(PATCHELF)
+    # Use a variable for the literal $ to ensure correct escaping across
+    # generators
+    set(_origin_rpath "$ORIGIN")
     add_custom_command(
       TARGET omegah2csg
       POST_BUILD
-      COMMAND ${PATCHELF} --set-rpath "$$ORIGIN"
-              "${_py_lib_dir}/$<TARGET_FILE_NAME:omegah2csg>"
-      COMMAND ${PATCHELF} --set-rpath "$$ORIGIN"
-              "${_py_lib_dir}/$<TARGET_FILE_NAME:Omega_h::omega_h>"
-      COMMENT "Patching RPATH to $$ORIGIN for portable deployment")
+      COMMAND ${PATCHELF} --set-rpath ${_origin_rpath}
+              ${_py_lib_dir}/$<TARGET_FILE_NAME:omegah2csg>
+      COMMAND ${PATCHELF} --set-rpath ${_origin_rpath}
+              ${_py_lib_dir}/$<TARGET_FILE_NAME:Omega_h::omega_h>
+      COMMENT "Patching RPATH to DOLLAR-ORIGIN for portable deployment"
+      VERBATIM)
   else()
     message(
       STATUS "patchelf not found; Python _lib.py will handle dependency loading"
