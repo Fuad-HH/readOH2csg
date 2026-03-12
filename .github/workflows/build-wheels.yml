@@ -84,6 +84,9 @@ jobs:
           # Set LD_LIBRARY_PATH so auditwheel can find shared libs to bundle
           CIBW_ENVIRONMENT_LINUX: >
             LD_LIBRARY_PATH=/usr/local/deps/lib:/usr/local/deps/lib64:$LD_LIBRARY_PATH
+            CMAKE_PREFIX_PATH=/usr/local/deps
+            OMEGA_H_ROOT=/usr/local/deps
+            KOKKOS_ROOT=/usr/local/deps
 
           # auditwheel repair is run automatically by cibuildwheel
 
