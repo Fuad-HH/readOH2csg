@@ -7,9 +7,11 @@ on:
   pull_request:
     branches:
       - parallel
+      - 'release/*.*.*'
   push:
     branches:
       - parallel
+      - 'release/*.*.*'
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true

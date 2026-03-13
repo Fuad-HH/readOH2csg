@@ -2,9 +2,9 @@ name: Format Check
 
 on:
   push:
-    branches: [ parallel ]
+    branches: [ parallel, 'release/*.*.*' ]
   pull_request:
-    branches: [ parallel ]
+    branches: [ parallel, 'release/*.*.*' ]
 
 jobs:
   clang-format-check:

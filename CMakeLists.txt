@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.21)
 project(
   omegah2csg
-  VERSION 0.0.1
+  VERSION 0.0.2
   LANGUAGES CXX C)
 
 include(GNUInstallDirs)
