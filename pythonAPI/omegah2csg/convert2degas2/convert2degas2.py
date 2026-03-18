@@ -78,7 +78,12 @@ def write_dummy_bg_files_aux(nzone, nwall_input, stratum_start):
 
 
 def convert2degas2(
-    mesh_filename, netcdf_filename="geometry.nc", create_aux_files=True, tol=1e-10
+    mesh_filename,
+    netcdf_filename="geometry.nc",
+    create_aux_files=True,
+    tol=1e-10,
+    target_temperature_K=300.0,
+    target_recyc_coef=0.50,
 ):
     """Convert Omega_h mesh to Degas2 NetCDF geometry file and auxiliary files.
 
@@ -93,6 +98,10 @@ def convert2degas2(
         If True, creates auxiliary files (plasmafile.txt, sourcefile.txt, wallfile.txt) required for Degas2 simulations. Default is True.
     tol : float, optional
         Tolerance for numerical comparisons when determining edge orientations and other geometric properties. Default is 1e-10.
+    target_temperature_K : float, optional
+        Target temperature in Kelvin. Default is 300.0.
+    target_recyc_coef : float, optional
+        Target recycling coefficient. Default is 0.50.
 
     """
 
@@ -773,9 +782,10 @@ def convert2degas2(
     sc_diag_max_bins_var[:] = sc_diag_max_bins
     sc_vacuum_num_var[:] = sc_vacuum_num
 
-    # target_temperature = np.zeros(sc_target_num+1) # ask
-    Twall = 300 * 1.380649e-23
-    target_temperature = Twall * np.ones(sc_target_num + 1)
+    # Temperature in jules
+    boltzmann_constant = 1.380649e-23  # J/K
+    target_temperature_j = target_temperature_K * boltzmann_constant
+    target_temperature = target_temperature_j * np.ones(sc_target_num + 1)
     target_temperature[0] = DBL_UNUSED
     target_temperature_var[:] = target_temperature
 
@@ -802,8 +812,7 @@ def convert2degas2(
     wall_material_var[:] = wall_material
     wall_temperature_var[:] = wall_temperature
 
-    recyc_coef = 0.99
-    target_recyc_coef = recyc_coef * np.ones(sc_target_num + 1)
+    target_recyc_coef = target_recyc_coef * np.ones(sc_target_num + 1)
     target_recyc_coef[0] = DBL_UNUSED
     target_recyc_coef_var[:] = target_recyc_coef
 
