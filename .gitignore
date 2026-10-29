@@ -21,7 +21,7 @@ wallfile.txt
 # Python distribution
 .settings/
 dist/
-pythonAPI/*.egg-info*/
+*.egg-info/
 wheelhouse/
 
 # Inputs generated from Python API
@@ -72,3 +72,14 @@ CMakeSettings.json
 
 # Python pickle files
 *.pkl
+
+# needed for standalone env to test locally
+.venv
+
+# benchmark caches/results and in-tree builds of the Python module
+bench/_meshes/
+bench/_results/
+python/omegah2csg/*.so
+
+# EGM design-review reports (local only)
+egm_review/

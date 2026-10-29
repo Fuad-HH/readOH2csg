@@ -6,7 +6,7 @@ inputs:
   repo-path:
     required: true
   repo-ref:
-    required: true
+    required: true # tag or commit sha
   options:
     required: true
   cache:
@@ -15,16 +15,21 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - name: Hash build options
+      id: opts
+      shell: bash
+      run: echo "hash=$(echo '${{ inputs.options }}' | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
 
     - name: Check Cache
       if: ${{ inputs.cache == 'true'}}
       uses: actions/cache@v4
       id: check-cache
       with:
-        key: build-${{ inputs.repo-name }}-${{ inputs.repo-ref}}
+        key: build-${{ inputs.repo-name }}-${{ inputs.repo-ref }}-${{ steps.opts.outputs.hash }}-${{ hashFiles('ci/versions.env') }}
         path: ${{ runner.temp }}/build-${{ inputs.repo-name }}
 
     - name: Checkout Repo
+      if: ${{ !steps.check-cache.outputs.cache-hit }}
       uses: actions/checkout@v4
       with:
         repository: ${{inputs.repo-path }}

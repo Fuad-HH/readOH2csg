@@ -1,0 +1,7 @@
+# Real XGC/DEGAS2 meshes for benchmarks (kept outside git). Each entry needs
+# the offset_face and isOnWall tags. Example:
+#
+# [mesh.iter_coarse]
+# path = "/path/to/iter_coarse.osh"
+# sha256 = "<sha256 of 0.osh>"
+# triangles = 2500000

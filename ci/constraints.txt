@@ -1,0 +1,6 @@
+# pybind11 must match the version PyOmega_h (omega-h) is built with
+pybind11==3.1.0
+scikit-build-core>=0.11
+numpy>=1.26
+netCDF4==1.7.2
+pytest>=8

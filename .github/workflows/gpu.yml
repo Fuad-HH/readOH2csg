@@ -1,0 +1,54 @@
+name: GPU
+
+# Self-hosted SCOREC runner (label `gpu`) with a spack environment providing
+# CUDA omega-h, Kokkos, netcdf-c, pugixml, pybind11 (SPACK_ENV) and DEGAS2
+# (DEGAS2_SRC, DEGAS2_BIN). Never runs for pull requests from forks.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '0 6 * * *'
+  pull_request:
+    types: [labeled, synchronize]
+
+jobs:
+  gpu:
+    if: >
+      github.event_name != 'pull_request' ||
+      (contains(github.event.pull_request.labels.*.name, 'run-gpu') &&
+       github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: [self-hosted, gpu]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and test on CUDA
+        run: |
+          spack env activate "$SPACK_ENV"
+          python -m venv .venv && . .venv/bin/activate
+          pip install -c ci/constraints.txt scikit-build-core numpy pytest netCDF4 openmc
+          pip install -e .[test] --no-build-isolation \
+            -Ccmake.define.OMEGAH2CSG_ENABLE_BENCH=ON -Cbuild-dir=build/gpu
+          python -c "import omegah2csg; c = omegah2csg.show_config(); print(c); assert c['execution_space'] == 'Cuda'"
+          pytest
+      - name: DEGAS2 accepts the geometry
+        run: ci/degas2_acceptance.sh build/gpu/apps/convert2degas2
+      - name: Download main baseline
+        if: github.event_name != 'push'
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          workflow: gpu.yml
+          branch: main
+          name: bench-main
+          path: bench/_results/baseline
+        continue-on-error: true
+      - name: Benchmarks (copy count, scaling, >15% regression gate)
+        run: |
+          . .venv/bin/activate
+          baseline=bench/_results/baseline/run.json
+          python bench/run_bench.py --build build/gpu --out bench/_results/run.json \
+            $( [ -f "$baseline" ] && echo --baseline "$baseline" )
+      - uses: actions/upload-artifact@v4
+        if: github.event_name == 'push'
+        with:
+          name: bench-main
+          path: bench/_results/run.json

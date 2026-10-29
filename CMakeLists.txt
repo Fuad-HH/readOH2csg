@@ -1,89 +1,90 @@
-cmake_minimum_required(VERSION 3.21)
+cmake_minimum_required(VERSION 3.24)
 project(
   omegah2csg
-  VERSION 0.0.2
-  LANGUAGES CXX C)
+  VERSION 0.1.0
+  LANGUAGES CXX)
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
-# ==================== OPTIONS ========================
-option(omegah2csg_ENABLE_PYTHON "Build for Python bindings" ON)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-# =================== CMAKE SETTINGS ===================
-# RPATH
-set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
-file(RELATIVE_PATH relDir ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_INSTALL_BINDIR}
-     ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_INSTALL_LIBDIR})
-set(CMAKE_INSTALL_RPATH $ORIGIN $ORIGIN/${relDir})
+# ==================== OPTIONS ========================
+if(DEFINED SKBUILD)
+  set(omegah2csg_python_default ON)
+else()
+  set(omegah2csg_python_default OFF)
+endif()
+option(OMEGAH2CSG_ENABLE_PYTHON "Build the omegah2csg._core Python module"
+       ${omegah2csg_python_default})
+option(OMEGAH2CSG_ENABLE_APPS "Build the native executables" ON)
+option(OMEGAH2CSG_ENABLE_TESTS "Register tests with CTest" OFF)
+option(OMEGAH2CSG_ENABLE_BENCH "Build benchmark helpers" OFF)
+set(OMEGAH2CSG_OPENMC_EXE_NAME
+    convert2openmc
+    CACHE STRING "Name of the OpenMC executable")
+set(OMEGAH2CSG_DEGAS2_EXE_NAME
+    convert2degas2
+    CACHE STRING "Name of the DEGAS2 executable")
 
 # =================== DEPENDENCIES ===================
-find_package(Omega_h REQUIRED)
-
+find_package(Omega_h CONFIG REQUIRED)
 if(NOT Omega_h_USE_Kokkos)
   message(FATAL_ERROR "Omega_h must be built with Kokkos support enabled.")
 endif()
+include(cmake/omegah2csgDependencies.cmake)
 
-# =================== BUILD TARGETS ===================
-# Always create only one library libomegah2csg
-set(omegah2csg_SOURCES src/Timer.cpp src/compute_surface.cpp src/capi.cpp)
-set(omegah2csg_HEADERS src/Timer.h src/compute_surface.h src/capi.h)
-
-if(omegah2csg_ENABLE_PYTHON)
-  if(NOT BUILD_SHARED_LIBS)
-    message(
-      STATUS
-        "Building Python bindings requires shared libraries. Overriding BUILD_SHARED_LIBS to ON."
-    )
+# Kokkos-dependent targets compile through Kokkos' compiler launcher
+# (nvcc_wrapper on CUDA); host-only targets use the host compiler.
+function(omegah2csg_kokkos_target target)
+  if(COMMAND kokkos_compilation)
+    kokkos_compilation(TARGET ${target})
   endif()
-  set(BUILD_SHARED_LIBS ON)
+endfunction()
+
+# =================== TARGETS ===================
+add_subdirectory(src)
+if(OMEGAH2CSG_ENABLE_APPS)
+  add_subdirectory(apps)
+endif()
+if(OMEGAH2CSG_ENABLE_PYTHON)
+  add_subdirectory(bindings)
+endif()
+if(OMEGAH2CSG_ENABLE_TESTS)
+  enable_testing()
+  add_subdirectory(tests)
+endif()
+if(OMEGAH2CSG_ENABLE_BENCH)
+  add_subdirectory(bench)
 endif()
 
-add_library(omegah2csg ${omegah2csg_SOURCES})
-target_include_directories(
-  omegah2csg PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
-                    $<INSTALL_INTERFACE:include>)
-target_link_libraries(omegah2csg PUBLIC Omega_h::omega_h)
-
-# =================== Python Package ===================
-if(omegah2csg_ENABLE_PYTHON)
-  # Copy only libomegah2csg.so into the Python package tree.
-  # Runtime dependencies (omega_h, kokkos) are bundled automatically by
-  # `auditwheel repair` when building the wheel — see CI workflow.
-  add_custom_command(
-    TARGET omegah2csg
-    POST_BUILD
-    COMMAND
-      ${CMAKE_COMMAND} -E copy $<TARGET_FILE:omegah2csg>
-      ${PROJECT_SOURCE_DIR}/pythonAPI/omegah2csg/lib/$<TARGET_FILE_NAME:omegah2csg>
-    COMMENT
-      "Copying $<TARGET_FILE:omegah2csg> to ${PROJECT_SOURCE_DIR}/pythonAPI/omegah2csg/lib/$<TARGET_FILE_NAME:omegah2csg>"
-  )
+# =================== INSTALLATION (C++ consumers) ===================
+if(NOT DEFINED SKBUILD)
+  install(
+    TARGETS omegah2csg_core omegah2csg_host
+    EXPORT omegah2csg-targets
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+  install(
+    DIRECTORY src/omegah2csg
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+    FILES_MATCHING
+    PATTERN "*.hpp")
+  configure_package_config_file(
+    cmake/omegah2csgConfig.cmake.in
+    ${PROJECT_BINARY_DIR}/omegah2csg-config.cmake
+    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/omegah2csg)
+  write_basic_package_version_file(
+    ${PROJECT_BINARY_DIR}/omegah2csg-config-version.cmake
+    COMPATIBILITY SameMinorVersion)
+  install(FILES ${PROJECT_BINARY_DIR}/omegah2csg-config.cmake
+                ${PROJECT_BINARY_DIR}/omegah2csg-config-version.cmake
+          DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/omegah2csg)
+  install(
+    EXPORT omegah2csg-targets
+    FILE omegah2csg-targets.cmake
+    NAMESPACE omegah2csg::
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/omegah2csg)
 endif()
-
-# =================== INSTALLATION ===================
-
-# Modules Directory
-set(cmakeModulesDir cmake)
-configure_package_config_file(
-  ${cmakeModulesDir}/omegah2csgConfig.cmake.in
-  ${CMAKE_BINARY_DIR}/omegah2csg-config.cmake
-  INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/omegah2csg)
-
-install(
-  TARGETS omegah2csg
-  EXPORT omegah2csg-targets
-  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
-
-install(FILES ${omegah2csg_HEADERS} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
-
-install(FILES ${PROJECT_BINARY_DIR}/omegah2csg-config.cmake
-        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/omegah2csg)
-
-install(
-  EXPORT omegah2csg-targets
-  FILE omegah2csg-targets.cmake
-  NAMESPACE omegah2csg::
-  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/omegah2csg)

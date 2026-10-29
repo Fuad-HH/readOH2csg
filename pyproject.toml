@@ -1,5 +1,6 @@
 [build-system]
-requires = ["scikit-build-core>=0.12.2"]
+# pybind11 must match the version PyOmega_h was built with (ci/constraints.txt)
+requires = ["scikit-build-core>=0.11", "pybind11==3.1.0"]
 build-backend = "scikit_build_core.build"
 
 [project]
@@ -7,13 +8,11 @@ name = "omegah2csg"
 authors = [
     { name="Fuad Hasan", email="fuadhhasan.for@gmail.com" },
 ]
-description = "Convert Omega_h mesh files generated using TOMMS for TOKAMAKs to CSG format for OpenMC and Degas2."
+description = "Convert Omega_h tokamak meshes (TOMMS/XGC) to CSG geometry for OpenMC and DEGAS2."
 readme = "README.md"
 dynamic = ["version"]
 requires-python = ">=3.11"
 classifiers = [
-    "Intended Audience :: Developers",
-    "Intended Audience :: End Users/Desktop",
     "Intended Audience :: Science/Research",
     "Natural Language :: English",
     "Topic :: Scientific/Engineering",
@@ -25,28 +24,25 @@ classifiers = [
 ]
 license = "BSD-3-Clause"
 license-files = ["LICEN[CS]E*"]
+dependencies = ["numpy>=1.26"]
 
-dependencies = [
-    "openmc >= 0.15.0",
-    "netCDF4 == 1.7.2"
-]
 [project.optional-dependencies]
-test = [
-    "pytest",
-]
+openmc = ["openmc>=0.15"]
+test = ["pytest", "netCDF4>=1.7.2", "openmc>=0.15"]
 
 [project.urls]
 Homepage = "https://github.com/Fuad-HH/readOH2csg"
 Issues = "https://github.com/Fuad-HH/readOH2csg/issues"
 
 [project.scripts]
-convert2openmc = "omegah2csg.convert2openmc.convert2openmc_cli:app"
-convert2degas2 = "omegah2csg.convert2degas2.convert2degas2_cli:app"
-
+convert2openmc = "omegah2csg._cli:openmc_main"
+convert2degas2 = "omegah2csg._cli:degas2_main"
 
 [tool.scikit-build]
 minimum-version = "build-system.requires"
-wheel.packages = ["pythonAPI/omegah2csg"]
+cmake.version = ">=3.24"
+build-dir = "build/{wheel_tag}"
+wheel.packages = ["python/omegah2csg"]
 metadata.version.provider = "scikit_build_core.metadata.regex"
 metadata.version.input = "CMakeLists.txt"
 metadata.version.regex = "project\\([^)]*?\\bVERSION\\s+(?P<value>[0-9]+\\.[0-9]+\\.[0-9]+)[^)]*\\)"
@@ -54,42 +50,27 @@ sdist.include = [
     "CMakeLists.txt",
     "cmake/**",
     "src/**",
-    "pythonAPI/**",
+    "apps/**",
+    "bindings/**",
+    "python/**",
     "tests/**",
     "README.md",
     "LICENSE",
     "pyproject.toml",
-    "pytest.toml",
 ]
 
-[tool.scikit-build.cmake.define]
-CMAKE_PREFIX_PATH = { env = "CMAKE_PREFIX_PATH", default = "" }
-Omega_h_ROOT = { env = "OMEGA_H_ROOT", default = "" }
-Kokkos_ROOT = { env = "KOKKOS_ROOT", default = "" }
-CMAKE_C_COMPILER = { env = "CC", default = "" }
-CMAKE_CXX_COMPILER = { env = "CXX", default = "" }
-CMAKE_BUILD_TYPE = { env = "CMAKE_BUILD_TYPE", default = "RelWithDebInfo" }
-
+[tool.pytest.ini_options]
+testpaths = ["tests/python"]
+addopts = ["-ra", "--strict-markers", "--strict-config", "--import-mode=importlib"]
+xfail_strict = true
 
 [tool.ruff]
-include = ["pyproject.toml", "pythonAPI/omegah2csg/**/*.py", "tests/**/*.py"]
+include = ["pyproject.toml", "python/**/*.py", "tests/**/*.py", "bench/**/*.py"]
 line-length = 88
-indent-width = 4
 
 [tool.ruff.format]
 quote-style = "double"
-indent-style = "space"
-skip-magic-trailing-comma = false
-line-ending = "auto"
 docstring-code-format = true
-docstring-code-line-length = "dynamic"
 
 [tool.ruff.lint]
-select = ["E4", "E7", "E9", "F"]
-ignore = []
-
-fixable = ["ALL"]
-unfixable = []
-
-dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
-
+extend-select = ["B", "I", "UP", "PT", "NPY", "SIM", "RUF"]
