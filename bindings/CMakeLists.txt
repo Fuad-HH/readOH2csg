@@ -31,7 +31,6 @@ pybind11_add_module(
   bind_options.cpp bind_results.cpp bind_pipeline.cpp)
 target_link_libraries(_core PRIVATE omegah2csg_core)
 target_compile_definitions(_core PRIVATE OMEGAH2CSG_VERSION="${PROJECT_VERSION}")
-omegah2csg_kokkos_target(_core)
 set_target_properties(_core PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
 if(DEFINED SKBUILD)
   install(TARGETS _core DESTINATION ${SKBUILD_PROJECT_NAME})

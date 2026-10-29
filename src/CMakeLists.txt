@@ -28,7 +28,6 @@ target_link_libraries(omegah2csg_core PUBLIC omegah2csg_host Omega_h::omega_h
                                              ${CMAKE_DL_LIBS})
 target_compile_definitions(
   omegah2csg_core PRIVATE OMEGAH2CSG_VERSION="${PROJECT_VERSION}")
-omegah2csg_kokkos_target(omegah2csg_core)
 
 add_library(omegah2csg::host ALIAS omegah2csg_host)
 add_library(omegah2csg::core ALIAS omegah2csg_core)

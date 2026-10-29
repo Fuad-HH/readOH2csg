@@ -44,14 +44,6 @@ else()
   set(OMEGAH2CSG_NETCDF_TARGET PkgConfig::NETCDF)
 endif()
 
-# Kokkos-dependent targets compile through Kokkos' compiler launcher
-# (nvcc_wrapper on CUDA); host-only targets use the host compiler.
-function(omegah2csg_kokkos_target target)
-  if(COMMAND kokkos_compilation)
-    kokkos_compilation(TARGET ${target})
-  endif()
-endfunction()
-
 # =================== TARGETS ===================
 add_subdirectory(src)
 if(OMEGAH2CSG_ENABLE_APPS)
