@@ -83,3 +83,6 @@ python/omegah2csg/*.so
 
 # EGM design-review reports (local only)
 egm_review/
+
+# CMake wrapper
+omega-h-env.sh

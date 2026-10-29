@@ -12,13 +12,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # ==================== OPTIONS ========================
-if(DEFINED SKBUILD)
-  set(omegah2csg_python_default ON)
-else()
-  set(omegah2csg_python_default OFF)
+option(OMEGAH2CSG_ENABLE_PYTHON "Build the omegah2csg._core Python module" ON)
+if(DEFINED SKBUILD AND NOT OMEGAH2CSG_ENABLE_PYTHON)
+  message(FATAL_ERROR "OMEGAH2CSG_ENABLE_PYTHON must be ON for scikit-build")
 endif()
-option(OMEGAH2CSG_ENABLE_PYTHON "Build the omegah2csg._core Python module"
-       ${omegah2csg_python_default})
 option(OMEGAH2CSG_ENABLE_APPS "Build the native executables" ON)
 option(OMEGAH2CSG_ENABLE_TESTS "Register tests with CTest" OFF)
 option(OMEGAH2CSG_ENABLE_BENCH "Build benchmark helpers" OFF)
@@ -30,11 +27,22 @@ set(OMEGAH2CSG_DEGAS2_EXE_NAME
     CACHE STRING "Name of the DEGAS2 executable")
 
 # =================== DEPENDENCIES ===================
-find_package(Omega_h CONFIG REQUIRED)
+find_package(Omega_h 11.4.0 CONFIG REQUIRED)
 if(NOT Omega_h_USE_Kokkos)
   message(FATAL_ERROR "Omega_h must be built with Kokkos support enabled.")
 endif()
-include(cmake/omegah2csgDependencies.cmake)
+find_package(pugixml CONFIG REQUIRED)
+
+# netcdf-c ships a CMake config only when built with CMake; otherwise use
+# its pkg-config file. Either way it is required.
+find_package(netCDF CONFIG QUIET)
+if(TARGET netCDF::netcdf)
+  set(OMEGAH2CSG_NETCDF_TARGET netCDF::netcdf)
+else()
+  find_package(PkgConfig REQUIRED)
+  pkg_check_modules(NETCDF REQUIRED IMPORTED_TARGET netcdf)
+  set(OMEGAH2CSG_NETCDF_TARGET PkgConfig::NETCDF)
+endif()
 
 # Kokkos-dependent targets compile through Kokkos' compiler launcher
 # (nvcc_wrapper on CUDA); host-only targets use the host compiler.

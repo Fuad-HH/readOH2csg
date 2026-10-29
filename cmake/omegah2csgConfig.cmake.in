@@ -2,7 +2,7 @@
 
 include(CMakeFindDependencyMacro)
 
-find_dependency(Omega_h CONFIG HINTS @Omega_h_DIR@)
+find_dependency(Omega_h 11.4.0 CONFIG HINTS @Omega_h_DIR@)
 # the static libraries also need pugixml and netcdf-c at link time
 find_dependency(pugixml CONFIG)
 find_dependency(PkgConfig)
